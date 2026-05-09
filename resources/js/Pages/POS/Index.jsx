@@ -4,7 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 
 export default function POS({ auth, products }) {
     // Tasa BCV (Temporal hasta conectarla a la API real)
-    const tasaBCV = 39.50;
+    const tasaBCV = 500.46;
 
     // Estados
     const [cart, setCart] = useState([]);
@@ -24,6 +24,32 @@ export default function POS({ auth, products }) {
                 );
             }
             return [...prevCart, { product, quantity: 1 }];
+        });
+    };
+
+    // Función para restar 1 unidad
+    const decreaseQuantity = (productId) => {
+        setCart(prevCart => {
+            // Restamos 1, y si llega a 0, el filter() lo saca de la lista automáticamente
+            const newCart = prevCart.map(item => {
+                if (item.product.id === productId) {
+                    return { ...item, quantity: item.quantity - 1 };
+                }
+                return item;
+            }).filter(item => item.quantity > 0);
+
+            // Si el carrito se queda vacío, cerramos el modal
+            if (newCart.length === 0) setIsModalOpen(false);
+            return newCart;
+        });
+    };
+
+    // Función para eliminar el producto por completo de un solo golpe
+    const removeItem = (productId) => {
+        setCart(prevCart => {
+            const newCart = prevCart.filter(item => item.product.id !== productId);
+            if (newCart.length === 0) setIsModalOpen(false);
+            return newCart;
         });
     };
 
@@ -82,16 +108,48 @@ export default function POS({ auth, products }) {
                                             <span className="material-symbols-outlined opacity-80 text-[40px]">icecream</span>
                                         </div>
 
-                                        {/* Selected Badge */}
+                                        {/* Selected Badge & Controls */}
                                         {qty > 0 && (
-                                            <div className="absolute top-2 right-2 bg-primary text-on-primary w-6 h-6 rounded-full flex items-center justify-center font-label-md text-[12px] shadow-sm font-bold">
-                                                {qty}
+                                            <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+
+                                                {/* Botón Eliminar (Rojo para evitar accidentes) */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // Evita que la tarjeta registre el clic y agregue uno nuevo
+                                                        removeItem(product.id);
+                                                    }}
+                                                    className="bg-error text-onError w-7 h-7 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform active:scale-95"
+                                                    title="Quitar del carrito"
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                                </button>
+
+                                                {/* Botón Restar */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // Evita que la tarjeta registre el clic
+                                                        decreaseQuantity(product.id);
+                                                    }}
+                                                    className="bg-primary text-on-primary w-7 h-7 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform active:scale-95"
+                                                    title="Restar una unidad"
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px]">remove</span>
+                                                </button>
+
+                                                {/* Indicador de Cantidad Actual (Mismo aspecto) */}
+                                                <div className="bg-primary text-on-primary w-7 h-7 rounded-full flex items-center justify-center font-label-md text-[13px] shadow-md font-bold">
+                                                    {qty}
+                                                </div>
+
                                             </div>
                                         )}
                                     </div>
                                     <div className="px-xs pb-xs flex-grow flex flex-col justify-between">
                                         <h3 className="font-headline-sm text-body-md font-bold leading-tight line-clamp-2 mb-1 text-gray-800">{product.name}</h3>
-                                        <p className="font-label-md text-primary font-black">${precioUSD}</p>
+                                        <div className="flex justify-between items-baseline mt-1 border-t border-outline-variant/30 pt-1">
+                                            <p className="font-label-md text-primary font-black">${precioUSD}</p>
+                                            <p className="font-label-sm text-on-surface-variant font-bold">{Number(product.price).toFixed(2)} Bs</p>
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -134,18 +192,38 @@ export default function POS({ auth, products }) {
                             <div className="p-md flex flex-col gap-sm max-h-[50vh] overflow-y-auto">
                                 {cart.map(item => (
                                     <div key={item.product.id} className="flex justify-between items-center border-b border-outline-variant/50 pb-sm">
-                                        <div className="flex items-center gap-sm">
-                                            <div className="bg-surface-container-highest rounded-md w-10 h-10 flex items-center justify-center font-label-md text-on-surface font-black">
-                                                x{item.quantity}
+
+                                        <div className="flex items-center gap-3">
+                                            {/* Nuevos Controles (+ / -) */}
+                                            <div className="flex items-center bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden shadow-sm">
+                                                <button onClick={() => decreaseQuantity(item.product.id)} className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-error transition-colors">
+                                                    <span className="material-symbols-outlined text-[18px]">remove</span>
+                                                </button>
+                                                <span className="w-6 text-center font-bold text-on-surface text-sm">{item.quantity}</span>
+                                                <button onClick={() => addToCart(item.product)} className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+                                                    <span className="material-symbols-outlined text-[18px]">add</span>
+                                                </button>
                                             </div>
+
                                             <div>
-                                                <p className="font-body-md text-on-surface font-bold">{item.product.name}</p>
-                                                <p className="font-body-sm text-on-surface-variant">${(item.product.price / tasaBCV).toFixed(2)} c/u</p>
+                                                <p className="font-body-md text-on-surface font-bold leading-tight">{item.product.name}</p>
+                                                <p className="font-body-sm text-on-surface-variant mt-0.5">
+                                                    ${(item.product.price / tasaBCV).toFixed(2)} <span className="text-[10px]">({Number(item.product.price).toFixed(2)} Bs)</span> c/u
+                                                </p>
                                             </div>
                                         </div>
-                                        <p className="font-body-md text-on-surface font-black">
-                                            ${((item.product.price / tasaBCV) * item.quantity).toFixed(2)}
-                                        </p>
+
+                                        <div className="flex flex-col items-end gap-1">
+                                            <p className="font-body-md text-on-surface font-black">
+                                                ${((item.product.price / tasaBCV) * item.quantity).toFixed(2)}
+                                            </p>
+                                            {/* Botón de eliminar por completo */}
+                                            <button onClick={() => removeItem(item.product.id)} className="text-error/70 hover:text-error text-[12px] font-bold flex items-center gap-1 transition-colors">
+                                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                                Quitar
+                                            </button>
+                                        </div>
+
                                     </div>
                                 ))}
                             </div>

@@ -4,7 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 
 export default function Index({ auth, products }) {
     // Tasa BCV temporal
-    const tasaBCV = 39.50;
+    const tasaBCV = 500.46;
 
     // Estado para controlar qué producto se está editando (null = ninguno)
     const [editingId, setEditingId] = useState(null);
@@ -100,8 +100,8 @@ export default function Index({ auth, products }) {
                                                             className="font-label-md text-on-surface bg-surface-container-lowest border border-outline-variant rounded-md px-2 py-1 focus:border-primary focus:ring-1 focus:ring-primary w-full md:w-4/5"
                                                             defaultValue={product.category_id}
                                                         >
-                                                            <option value="1">Helados</option>
-                                                            <option value="2">Tetas</option>
+                                                            <option value="1">Tetas</option>
+                                                            <option value="2">Helados</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -118,16 +118,30 @@ export default function Index({ auth, products }) {
 
                                                     <div className="flex flex-col">
                                                         <span className="font-label-md text-label-md text-primary font-black mb-1">PRECIO (BS)</span>
-                                                        <div className="relative">
-                                                            <input id={`edit_price_${product.id}`} className="font-body-md text-body-md text-on-surface bg-primary-container/10 border border-primary rounded-md px-2 py-1 w-24 focus:border-primary focus:ring-1 focus:ring-primary shadow-sm font-bold" step="0.01" type="number" defaultValue={precioBs} />
-                                                        </div>
+                                                        <input
+                                                            id={`edit_price_bs_${product.id}`}
+                                                            className="font-body-md text-body-md text-on-surface bg-surface-container-lowest border border-outline-variant rounded-md px-2 py-1 w-24 focus:border-primary focus:ring-1 focus:ring-primary font-bold"
+                                                            step="0.01" type="number"
+                                                            defaultValue={product.price}
+                                                            onChange={(e) => {
+                                                                // Si toco los Bs, actualizo visualmente los $
+                                                                document.getElementById(`edit_price_usd_${product.id}`).value = (e.target.value / tasaBCV).toFixed(2);
+                                                            }}
+                                                        />
                                                     </div>
 
                                                     <div className="flex flex-col">
-                                                        <span className="font-label-md text-label-md text-on-surface-variant mb-1 font-bold">PRECIO (USD)</span>
-                                                        <span className="font-body-md text-body-md text-on-surface-variant px-2 py-1 bg-surface-container-low rounded-md inline-block w-24 text-right font-bold">
-                                                            ~ ${precioUSD}
-                                                        </span>
+                                                        <span className="font-label-md text-label-md text-primary font-black mb-1">PRECIO ($)</span>
+                                                        <input
+                                                            id={`edit_price_usd_${product.id}`}
+                                                            className="font-body-md text-body-md text-primary bg-primary-container/10 border border-primary rounded-md px-2 py-1 w-24 focus:border-primary focus:ring-1 focus:ring-primary shadow-sm font-bold"
+                                                            step="0.01" type="number"
+                                                            defaultValue={(product.price / tasaBCV).toFixed(2)}
+                                                            onChange={(e) => {
+                                                                // Si toco los $, actualizo visualmente los Bs
+                                                                document.getElementById(`edit_price_bs_${product.id}`).value = (e.target.value * tasaBCV).toFixed(2);
+                                                            }}
+                                                        />
                                                     </div>
                                                 </div>
 
@@ -137,7 +151,7 @@ export default function Index({ auth, products }) {
                                                         onClick={() => {
                                                             const newName = document.getElementById(`edit_name_${product.id}`).value;
                                                             const newStock = document.getElementById(`edit_stock_${product.id}`).value;
-                                                            const newPriceBs = document.getElementById(`edit_price_${product.id}`).value;
+                                                            const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
                                                             const newCategory = document.getElementById(`edit_category_${product.id}`).value;
 
                                                             router.put(route('products.update', product.id), {
@@ -179,9 +193,15 @@ export default function Index({ auth, products }) {
                                                 </div>
                                                 <div>
                                                     <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1 font-bold">{product.name}</h3>
-                                                    <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase">
-                                                        {product.category_id == 1 ? 'HELADO' : 'TETA'}
-                                                    </span>
+                                                    {product.category_id == 1 ? (
+                                                        <span className="bg-pink-100 text-pink-600 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase">
+                                                            TETA
+                                                        </span>
+                                                    ) : (
+                                                        <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase">
+                                                            HELADO
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -304,33 +324,42 @@ export default function Index({ auth, products }) {
                                     onChange={e => setData('category_id', e.target.value)}
                                     className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
                                 >
-                                    <option value="1">Helados</option>
-                                    <option value="2">Tetas</option>
+                                    <option value="1">Tetas</option>
+                                    <option value="2">Helados</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Stock Inicial</label>
+                                <input
+                                    type="number"
+                                    required
+                                    min="0"
+                                    value={data.stock}
+                                    onChange={e => setData('stock', e.target.value)}
+                                    className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Stock Inicial</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        min="0"
-                                        value={data.stock}
-                                        onChange={e => setData('stock', e.target.value)}
-                                        className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
-                                    />
-                                </div>
-                                <div>
                                     <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Precio (Bs)</label>
                                     <input
                                         type="number"
-                                        required
-                                        step="0.01"
-                                        min="0"
+                                        required step="0.01" min="0"
                                         value={data.price}
                                         onChange={e => setData('price', e.target.value)}
-                                        className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
+                                        className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface font-bold"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Precio ($)</label>
+                                    <input
+                                        type="number"
+                                        required step="0.01" min="0"
+                                        value={data.price ? (data.price / tasaBCV).toFixed(2) : ''}
+                                        onChange={e => setData('price', (e.target.value * tasaBCV).toFixed(2))}
+                                        className="w-full bg-primary-container/10 border border-primary rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-primary font-bold shadow-sm"
                                     />
                                 </div>
                             </div>

@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 
 export default function MainLayout({ children, title }) {
     // Tasa BCV (Por ahora estática, luego la pasaremos desde el backend)
-    const tasaBCV = 39.50;
+    const tasaBCV = 500.46;
 
     return (
         <div className="bg-background text-on-background min-h-screen font-body-md antialiased pb-[80px] md:pb-0 relative overflow-hidden">
