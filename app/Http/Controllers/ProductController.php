@@ -33,9 +33,18 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+   public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'stock' => 'required|integer|min:0',
+            'price' => 'required|numeric|min:0',
+            'category_id' => 'required|exists:categories,id', // <-- Añadimos esta línea
+        ]);
+
+        Product::create($validated);
+
+        return back()->with('success', 'Producto registrado exitosamente');
     }
 
     /**
@@ -59,7 +68,19 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
-        //
+        // 1. Validamos la data que viene de React
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'stock' => 'required|integer|min:0',
+            'price' => 'required|numeric|min:0', // Recordar: Este es el precio en Bs
+            'category_id' => 'required|exists:categories,id',
+        ]);
+
+        // 2. Actualizamos el producto en la BD
+        $product->update($validated);
+
+        // 3. Retornamos sin recargar la página
+        return back()->with('success', 'Producto actualizado');
     }
 
     /**
@@ -67,6 +88,10 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
-        //
+        // Eliminamos el producto de la base de datos
+        $product->delete();
+
+        // Retornamos a la vista actual sin recargar
+        return back()->with('success', 'Producto eliminado correctamente');
     }
 }

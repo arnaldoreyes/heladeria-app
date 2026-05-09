@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SaleController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -23,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('categories', CategoryController::class);
     Route::resource('products', ProductController::class);
+    Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
     Route::get('/pos', function () {
         return inertia('POS/Index', [
             'products' => App\Models\Product::with('category')->where('stock', '>', 0)->get()

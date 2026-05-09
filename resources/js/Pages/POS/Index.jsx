@@ -1,5 +1,5 @@
-import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
 export default function POS({ auth, products }) {
@@ -10,6 +10,7 @@ export default function POS({ auth, products }) {
     const [cart, setCart] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('Todos');
+    const [toast, setToast] = useState('');
 
     // Lógica del carrito
     const addToCart = (product) => {
@@ -164,9 +165,18 @@ export default function POS({ auth, products }) {
                                 </div>
                                 <button
                                     onClick={() => {
-                                        alert('Aquí enviaremos la orden a la base de datos');
-                                        setCart([]);
-                                        setIsModalOpen(false);
+                                        router.post(route('sales.store'), {
+                                            cart: cart,
+                                            tasa_bcv: tasaBCV
+                                        }, {
+                                            onSuccess: () => {
+                                                setCart([]);
+                                                setIsModalOpen(false);
+                                                // Reemplazo del alert:
+                                                setToast('¡Venta registrada exitosamente!');
+                                                setTimeout(() => setToast(''), 3000); // Se oculta a los 3 segundos
+                                            }
+                                        });
                                     }}
                                     className="w-full bg-primary text-on-primary py-sm rounded-lg font-label-md text-headline-sm font-bold shadow-md hover:bg-primary-container hover:shadow-lg transition-all flex justify-center items-center gap-2"
                                 >
@@ -176,6 +186,13 @@ export default function POS({ auth, products }) {
                             </div>
 
                         </div>
+                    </div>
+                )}
+                {/* Notificación Toast */}
+                {toast && (
+                    <div className="fixed top-24 right-4 bg-primary text-on-primary px-6 py-3 rounded-lg shadow-2xl z-[200] font-bold animate-fade-in flex items-center gap-2">
+                        <span className="material-symbols-outlined">check_circle</span>
+                        {toast}
                     </div>
                 )}
             </div>
