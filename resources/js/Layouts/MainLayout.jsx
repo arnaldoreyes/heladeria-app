@@ -1,54 +1,119 @@
-import { Link } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { Link, usePage } from '@inertiajs/react';
 
-export default function MainLayout({ children, title }) {
-    // Tasa BCV (Por ahora estática, luego la pasaremos desde el backend)
-    const tasaBCV = 500.46;
+export default function MainLayout({ children }) {
+    const { url } = usePage();
+
+    const [isDarkMode, setIsDarkMode] = useState(false);
+
+    useEffect(() => {
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+            setIsDarkMode(true);
+            document.documentElement.classList.add('dark');
+        } else {
+            setIsDarkMode(false);
+            document.documentElement.classList.remove('dark');
+        }
+    }, []);
+
+    const toggleTheme = () => {
+        if (isDarkMode) {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+            setIsDarkMode(false);
+        } else {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+            setIsDarkMode(true);
+        }
+    };
+
+    // Añadimos iconos a los enlaces para la versión móvil
+    const navLinks = [
+        { name: 'Resumen', href: route('dashboard'), active: url.startsWith('/dashboard'), icon: 'space_dashboard' },
+        { name: 'Venta', href: route('pos.index'), active: url.startsWith('/pos') || url === '/', icon: 'point_of_sale' },
+        { name: 'Inventario', href: route('products.index'), active: url.startsWith('/products'), icon: 'inventory_2' },
+    ];
 
     return (
-        <div className="bg-background text-on-background min-h-screen font-body-md antialiased pb-[80px] md:pb-0 relative overflow-hidden">
+        <div className="min-h-screen bg-background dark:bg-dark-background text-on-background dark:text-dark-on-surface transition-colors duration-300 pb-16 md:pb-0">
 
-            {/* TopAppBar Compartida */}
-            <header className="bg-surface dark:bg-on-background shadow-sm dark:border-b dark:border-outline-variant docked full-width top-0 sticky z-40">
-                <div className="flex justify-between items-center w-full max-w-7xl mx-auto h-20 md:px-margin-desktop px-margin-mobile">
-                    <div className="flex items-center gap-sm">
-                        <span className="material-symbols-outlined text-primary dark:text-inverse-primary text-[32px]">icecream</span>
-                        <h1 className="font-display-lg text-headline-md font-bold text-primary dark:text-inverse-primary hidden sm:block">ScoopMaster Pro</h1>
-                    </div>
+            {/* TOP NAVBAR (Común para todos) */}
+            <nav className="bg-surface dark:bg-dark-surface border-b border-outline-variant dark:border-dark-outline sticky top-0 z-50 transition-colors duration-300 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+                    <div className="flex justify-between h-16 items-center">
 
-                    {/* Desktop Nav Cluster (Oculto en móviles) */}
-                    <nav className="hidden md:flex items-center gap-md">
-                        <Link href={route('dashboard')} className={`font-body-md px-4 py-2 rounded-lg font-bold transition-colors ${route().current('dashboard') ? 'text-primary bg-surface-container-low' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>Resumen</Link>
-                        <Link href={route('pos')} className={`font-body-md px-4 py-2 rounded-lg font-bold transition-colors ${route().current('pos') ? 'text-primary bg-surface-container-low' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>Venta</Link>
-                        <Link href={route('products.index')} className={`font-body-md px-4 py-2 rounded-lg font-bold transition-colors ${route().current('products.index') ? 'text-primary bg-surface-container-low' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>Inventario</Link>
-                    </nav>
+                        {/* Logo a la izquierda */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[28px]">icecream</span>
+                            <span className="font-headline-sm font-bold text-primary dark:text-dark-primary hidden sm:block tracking-wide">
+                                ScoopMaster Pro
+                            </span>
+                        </div>
 
-                    <div className="flex items-center">
-                        <div className="font-label-md text-label-md text-on-surface-variant bg-surface-container-high px-4 py-2 rounded-full shadow-inner font-bold border border-outline-variant/30">
-                            BCV: {tasaBCV} Bs
+                        {/* Enlaces al centro (SOLO PC / TABLET HORIZONTAL) */}
+                        <div className="hidden md:flex space-x-2">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.name}
+                                    href={link.href}
+                                    className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${link.active
+                                            ? 'bg-primary text-on-primary shadow-sm dark:bg-dark-primary dark:text-dark-background'
+                                            : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface dark:text-dark-on-surface-variant dark:hover:bg-dark-background dark:hover:text-dark-on-surface'
+                                        }`}
+                                >
+                                    {link.name}
+                                </Link>
+                            ))}
+                        </div>
+
+                        {/* Controles a la derecha */}
+                        <div className="flex items-center gap-3 shrink-0">
+                            <div className="bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-dark-on-surface font-bold text-sm px-4 py-1.5 rounded-full border border-outline-variant/50 dark:border-dark-outline shadow-sm transition-colors">
+                                BCV: 500.46 Bs
+                            </div>
+
+                            <button
+                                onClick={toggleTheme}
+                                className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-background hover:text-primary dark:hover:text-dark-primary transition-all active:scale-95 border border-transparent dark:border-dark-outline"
+                                title={isDarkMode ? "Cambiar a Modo Claro" : "Cambiar a Modo Oscuro"}
+                            >
+                                <span className="material-symbols-outlined text-[22px]">
+                                    {isDarkMode ? 'light_mode' : 'dark_mode'}
+                                </span>
+                            </button>
                         </div>
                     </div>
                 </div>
-            </header>
+            </nav>
 
-            {/* Aquí se inyectará el contenido específico de cada vista */}
-            {children}
+            {/* CONTENIDO DE LA PÁGINA */}
+            <main>
+                {children}
+            </main>
 
-            {/* BottomNavBar (Solo para móviles) */}
-            <nav className="md:hidden bg-surface-container dark:bg-surface-dim border-t border-outline-variant shadow-[0_-4px_20px_rgba(0,0,0,0.05)] docked full-width bottom-0 rounded-t-2xl fixed left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-6 sm:pb-2">
-                <Link href={route('dashboard')} className={`flex flex-col items-center justify-center py-1.5 w-[72px] rounded-2xl transition-all ${route().current('dashboard') ? 'bg-secondary-container text-on-secondary-container shadow-sm scale-105' : 'text-on-surface-variant opacity-70 hover:bg-surface-container-highest'}`}>
-                    <span className="material-symbols-outlined text-[24px] mb-1" style={route().current('dashboard') ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
-                    <span className="font-label-md text-[10px] font-bold">Resumen</span>
-                </Link>
-
-                <Link href={route('pos')} className={`flex flex-col items-center justify-center py-1.5 w-[72px] rounded-2xl transition-all ${route().current('pos') ? 'bg-secondary-container text-on-secondary-container shadow-sm scale-105' : 'text-on-surface-variant opacity-70 hover:bg-surface-container-highest'}`}>
-                    <span className="material-symbols-outlined text-[24px] mb-1" style={route().current('pos') ? { fontVariationSettings: "'FILL' 1" } : {}}>point_of_sale</span>
-                    <span className="font-label-md text-[10px] font-bold">Venta</span>
-                </Link>
-
-                <Link href={route('products.index')} className={`flex flex-col items-center justify-center py-1.5 w-[72px] rounded-2xl transition-all ${route().current('products.index') ? 'bg-secondary-container text-on-secondary-container shadow-sm scale-105' : 'text-on-surface-variant opacity-70 hover:bg-surface-container-highest'}`}>
-                    <span className="material-symbols-outlined text-[24px] mb-1" style={route().current('products.index') ? { fontVariationSettings: "'FILL' 1" } : {}}>inventory_2</span>
-                    <span className="font-label-md text-[10px] font-bold">Inventario</span>
-                </Link>
+            {/* BOTTOM NAVIGATION BAR (SOLO MÓVIL) */}
+            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface dark:bg-dark-surface border-t border-outline-variant dark:border-dark-outline z-[90] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none pb-safe">
+                <div className="flex justify-around items-center h-16 px-2">
+                    {navLinks.map((link) => (
+                        <Link
+                            key={link.name}
+                            href={link.href}
+                            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${link.active
+                                    ? 'text-primary dark:text-dark-primary'
+                                    : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:text-on-surface dark:hover:text-white'
+                                }`}
+                        >
+                            <span className={`material-symbols-outlined text-[24px] ${link.active ? 'drop-shadow-sm' : ''}`} style={link.active ? { fontVariationSettings: "'FILL' 1" } : {}}>
+                                {link.icon}
+                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">{link.name}</span>
+                        </Link>
+                    ))}
+                </div>
             </nav>
 
         </div>

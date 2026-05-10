@@ -3,6 +3,9 @@ import forms from '@tailwindcss/forms';
 
 /** @type {import('tailwindcss').Config} */
 export default {
+
+    darkMode: 'class',
+
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',
@@ -13,6 +16,7 @@ export default {
     theme: {
         extend: {
             colors: {
+                // MODO CLARO (Tus colores originales)
                 "surface-dim": "#dadadc",
                 "secondary-container": "#ffc1d0",
                 "on-surface-variant": "#3f4848",
@@ -28,6 +32,18 @@ export default {
                 "surface-container-low": "#f3f3f6",
                 "surface-container-high": "#e8e8ea",
                 "surface-container": "#eeeef0",
+                "error": "#ba1a1a",
+                "onError": "#ffffff",
+
+                // VARIANTES PARA MODO OSCURO (Estilo VS Code / Slate)
+                // Para usarlos, en tus componentes usas: dark:bg-dark-background
+                "dark-background": "#0d0d0d", // Negro casi puro para el fondo
+                "dark-surface": "#181818",    // Gris carbón para tarjetas (One Dark Pro style)
+                "dark-primary": "#4ade80",     // Cambiamos a un Verde Esmeralda vibrante (resalta mejor en negro)
+                "dark-on-surface": "#e5e5e5", // Gris muy claro para texto
+                "dark-on-surface-variant": "#737373", // Gris medio para texto secundario
+                "dark-outline": "#262626",    // Gris oscuro para bordes
+                "dark-surface-container": "#121212",
             },
             fontFamily: {
                 "body-md": ["Hanken Grotesk", ...defaultTheme.fontFamily.sans],

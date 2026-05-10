@@ -2,249 +2,201 @@ import { useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
-export default function Index({ auth, products }) {
-    // Tasa BCV temporal
+export default function Index({ products }) {
     const tasaBCV = 500.46;
-
-    // Estado para controlar qué producto se está editando (null = ninguno)
     const [editingId, setEditingId] = useState(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [productToDelete, setProductToDelete] = useState(null);
+    const [toast, setToast] = useState('');
 
-    // Lógica visual del porcentaje de stock (Max estimado 100 para la barra)
+    const showToast = (message) => {
+        setToast(message);
+        setTimeout(() => setToast(''), 3000);
+    };
+
     const getStockPercentage = (stock) => Math.min((stock / 100) * 100, 100);
 
-    // Estado para abrir/cerrar el modal de creación
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-    // Estado para controlar el modal de eliminación (guarda el producto a eliminar o null)
-    const [productToDelete, setProductToDelete] = useState(null);
-
-    // Formulario reactivo de Inertia
-    const { data, setData, post, processing, reset } = useForm({
+    const { data, setData, post, processing, reset, errors } = useForm({
         name: '',
         stock: 0,
         price: 0,
         category_id: 1,
     });
 
-    // Función para enviar el formulario
     const submitCreate = (e) => {
         e.preventDefault();
         post(route('products.store'), {
             onSuccess: () => {
-                setIsCreateModalOpen(false); // Cierra el modal
-                reset(); // Limpia los campos para la próxima vez
+                setIsCreateModalOpen(false);
+                reset();
+                showToast('¡Producto registrado con éxito!'); // <-- AÑADIDO
             }
         });
     };
 
     return (
         <MainLayout>
-            <div className="bg-background text-on-background font-body-md min-h-screen flex flex-col pb-[80px] md:pb-0">
+            <div className="bg-background dark:bg-dark-background text-on-background dark:text-dark-on-surface font-body-md min-h-screen flex flex-col pb-[80px] md:pb-0 transition-colors">
                 <Head title="Inventario" />
 
-                {/* Main Content Canvas */}
                 <main className="flex-grow w-full max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-md md:py-xl">
 
-                    {/* Header & Global Actions */}
+                    {/* Header */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-lg gap-sm md:gap-0">
                         <div>
-                            <h2 className="font-headline-lg text-headline-lg text-on-surface mb-xs font-bold">Gestión de Inventario</h2>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">Administra niveles de stock, categorías y precios.</p>
+                            <h2 className="font-headline-lg text-headline-lg text-on-surface dark:text-white mb-xs font-bold transition-colors tracking-tight">Gestión de Inventario</h2>
+                            <p className="font-body-sm text-body-sm text-on-surface-variant dark:text-dark-on-surface-variant">Administra niveles de stock, categorías y precios.</p>
                         </div>
                         <div className="flex items-center gap-sm w-full md:w-auto mt-sm md:mt-0">
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
-                                className="bg-primary text-on-primary hover:opacity-90 transition-opacity px-6 py-2 rounded-lg shadow-md flex items-center gap-2 font-body-md text-body-md font-bold ml-auto md:ml-0"
+                                className="bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background hover:opacity-90 transition-all px-6 py-2 rounded-lg shadow-md flex items-center gap-2 font-body-md text-body-md font-black ml-auto md:ml-0 border dark:border-dark-primary/20"
                             >
-                                <span className="material-symbols-outlined text-[18px]">add</span>
-                                Nuevo Producto
+                                <span className="material-symbols-outlined text-[18px]">add_box</span>
+                                NUEVO PRODUCTO
                             </button>
                         </div>
                     </div>
 
-                    {/* Inventory Dashboard List */}
+                    {/* Lista de Productos */}
                     <div className="flex flex-col gap-sm">
                         {products.length === 0 ? (
-                            <div className="text-center p-8 bg-surface-container-lowest rounded-xl border border-outline-variant text-on-surface-variant">
+                            <div className="text-center p-8 bg-surface-container-lowest dark:bg-dark-surface rounded-xl border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant italic">
                                 No hay productos registrados.
                             </div>
                         ) : (
                             products.map(product => {
                                 const isEditing = editingId === product.id;
-                                const isLowStock = product.stock <= 5; // Lógica de stock bajo
+                                const isLowStock = product.stock <= 5;
                                 const precioUSD = (product.price / tasaBCV).toFixed(2);
                                 const precioBs = Number(product.price).toFixed(2);
 
-                                // --- MODO EDICIÓN ---
+                                // ==========================================
+                                // MODO EDICIÓN (Grilla perfectamente alineada)
+                                // ==========================================
                                 if (isEditing) {
                                     return (
-                                        <div key={product.id} className="bg-surface-container-lowest border-2 border-primary rounded-xl p-md shadow-md transition-shadow relative overflow-hidden">
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+                                        <div key={product.id} className="bg-surface-container-lowest dark:bg-dark-surface border-2 border-primary dark:border-dark-primary rounded-xl p-4 shadow-xl relative overflow-hidden transition-all">
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary dark:bg-dark-primary"></div>
 
-                                                {/* 1. SECCIÓN IZQUIERDA: Ícono, Nombre y Selector de Categoría */}
-                                                <div className="flex items-center gap-md min-w-[240px] w-full md:w-1/3">
-                                                    <div className="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shrink-0">
-                                                        <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>icecream</span>
+                                            <div className="flex flex-col gap-4 pl-2">
+                                                {/* Fila 1: Nombre y Categoría */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                                                    <div className="flex flex-col">
+                                                        <label className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-[0.2em] mb-1 whitespace-nowrap">Nombre</label>
+                                                        <input id={`edit_name_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" type="text" defaultValue={product.name} />
+
                                                     </div>
-                                                    <div className="w-full flex flex-col gap-2">
-                                                        <input
-                                                            id={`edit_name_${product.id}`}
-                                                            className="font-headline-sm text-headline-sm text-on-surface bg-surface-container-lowest border border-outline-variant rounded-md px-2 py-1 w-full focus:border-primary focus:ring-1 focus:ring-primary font-bold"
-                                                            type="text"
-                                                            defaultValue={product.name}
-                                                        />
-                                                        {/* El selector ahora vive aquí abajo del nombre */}
-                                                        <select
-                                                            id={`edit_category_${product.id}`}
-                                                            className="font-label-md text-on-surface bg-surface-container-lowest border border-outline-variant rounded-md px-2 py-1 focus:border-primary focus:ring-1 focus:ring-primary w-full md:w-4/5"
-                                                            defaultValue={product.category_id}
-                                                        >
+                                                    <div className="flex flex-col">
+                                                        <label className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-[0.2em] mb-1 whitespace-nowrap">Categoría</label>
+                                                        <select id={`edit_category_${product.id}`} className="font-label-md text-on-surface dark:text-dark-on-surface bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 focus:border-primary dark:focus:border-dark-primary w-full text-sm" defaultValue={product.category_id}>
                                                             <option value="1">Tetas</option>
                                                             <option value="2">Helados</option>
                                                         </select>
                                                     </div>
                                                 </div>
 
-                                                {/* 2. SECCIÓN CENTRAL: Stock y Precios */}
-                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-md md:gap-lg w-full md:w-auto flex-grow mt-4 md:mt-0">
+                                                {/* Fila 2: Stock, Bs, $ en 3 columnas iguales */}
+                                                <div className="grid grid-cols-3 gap-3 w-full">
                                                     <div className="flex flex-col">
-                                                        <span className="font-label-md text-label-md text-on-surface-variant mb-1 font-bold">STOCK</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <input id={`edit_stock_${product.id}`} className="font-headline-sm text-headline-sm text-on-surface bg-surface-container-lowest border border-outline-variant rounded-md px-2 py-1 w-20 focus:border-primary focus:ring-1 focus:ring-primary font-bold" type="number" defaultValue={product.stock} />
-                                                            <span className="text-body-sm text-on-surface-variant">und</span>
-                                                        </div>
+                                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Stock</label>
+                                                        <input id={`edit_stock_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" type="number" defaultValue={product.stock} />
                                                     </div>
-
                                                     <div className="flex flex-col">
-                                                        <span className="font-label-md text-label-md text-primary font-black mb-1">PRECIO (BS)</span>
-                                                        <input
-                                                            id={`edit_price_bs_${product.id}`}
-                                                            className="font-body-md text-body-md text-on-surface bg-surface-container-lowest border border-outline-variant rounded-md px-2 py-1 w-24 focus:border-primary focus:ring-1 focus:ring-primary font-bold"
-                                                            step="0.01" type="number"
-                                                            defaultValue={product.price}
-                                                            onChange={(e) => {
-                                                                // Si toco los Bs, actualizo visualmente los $
-                                                                document.getElementById(`edit_price_usd_${product.id}`).value = (e.target.value / tasaBCV).toFixed(2);
-                                                            }}
-                                                        />
+                                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Precio Bs</label>
+                                                        <input id={`edit_price_bs_${product.id}`} className="font-body-md text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" step="0.01" type="number" defaultValue={product.price} onChange={(e) => { document.getElementById(`edit_price_usd_${product.id}`).value = (e.target.value / tasaBCV).toFixed(2); }} />
                                                     </div>
-
                                                     <div className="flex flex-col">
-                                                        <span className="font-label-md text-label-md text-primary font-black mb-1">PRECIO ($)</span>
-                                                        <input
-                                                            id={`edit_price_usd_${product.id}`}
-                                                            className="font-body-md text-body-md text-primary bg-primary-container/10 border border-primary rounded-md px-2 py-1 w-24 focus:border-primary focus:ring-1 focus:ring-primary shadow-sm font-bold"
-                                                            step="0.01" type="number"
-                                                            defaultValue={(product.price / tasaBCV).toFixed(2)}
-                                                            onChange={(e) => {
-                                                                // Si toco los $, actualizo visualmente los Bs
-                                                                document.getElementById(`edit_price_bs_${product.id}`).value = (e.target.value * tasaBCV).toFixed(2);
-                                                            }}
-                                                        />
+                                                        <label className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 whitespace-nowrap">Ref USD</label>
+                                                        <input id={`edit_price_usd_${product.id}`} className="font-body-md text-primary dark:text-dark-primary bg-primary-container/10 dark:bg-dark-primary/10 border border-primary/50 dark:border-dark-primary/30 rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" step="0.01" type="number" defaultValue={(product.price / tasaBCV).toFixed(2)} onChange={(e) => { document.getElementById(`edit_price_bs_${product.id}`).value = (e.target.value * tasaBCV).toFixed(2); }} />
                                                     </div>
                                                 </div>
 
-                                                {/* 3. SECCIÓN DERECHA: Botones */}
-                                                <div className="flex items-center justify-end w-full md:w-auto gap-2 border-t md:border-t-0 border-outline-variant pt-md md:pt-0 mt-4 md:mt-0">
-                                                    <button
-                                                        onClick={() => {
-                                                            const newName = document.getElementById(`edit_name_${product.id}`).value;
-                                                            const newStock = document.getElementById(`edit_stock_${product.id}`).value;
-                                                            const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
-                                                            const newCategory = document.getElementById(`edit_category_${product.id}`).value;
-
-                                                            router.put(route('products.update', product.id), {
-                                                                name: newName,
-                                                                stock: newStock,
-                                                                price: newPriceBs,
-                                                                category_id: newCategory
-                                                            }, {
-                                                                onSuccess: () => setEditingId(null)
-                                                            });
-                                                        }}
-                                                        className="bg-primary text-on-primary hover:opacity-90 px-4 py-1.5 rounded-lg text-body-sm font-bold transition-opacity"
-                                                    >
-                                                        Guardar
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditingId(null)}
-                                                        className="text-on-surface-variant hover:text-error px-3 py-1.5 rounded-lg text-body-sm font-bold transition-colors border border-transparent hover:border-outline-variant"
-                                                    >
-                                                        Cancelar
-                                                    </button>
+                                                {/* Botones */}
+                                                <div className="flex items-center justify-end w-full gap-3 border-t border-outline-variant dark:border-dark-outline pt-3 mt-1">
+                                                    <button onClick={() => setEditingId(null)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error dark:hover:text-error px-4 py-2 rounded-lg text-xs font-black uppercase transition-colors border border-transparent dark:hover:border-dark-outline">Cancelar</button>
+                                                    <button onClick={() => {
+                                                        const newName = document.getElementById(`edit_name_${product.id}`).value;
+                                                        const newStock = document.getElementById(`edit_stock_${product.id}`).value;
+                                                        const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
+                                                        const newCategory = document.getElementById(`edit_category_${product.id}`).value;
+                                                        router.put(route('products.update', product.id),
+                                                            { name: newName, stock: newStock, price: newPriceBs, category_id: newCategory },
+                                                            {
+                                                                onSuccess: () => {
+                                                                    setEditingId(null);
+                                                                    showToast('¡Producto actualizado correctamente!'); // <-- AÑADIDO
+                                                                }
+                                                            }
+                                                        );
+                                                    }} className="bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background px-6 py-2 rounded-lg text-xs font-black uppercase transition-all shadow-md">Guardar</button>
                                                 </div>
                                             </div>
                                         </div>
                                     );
                                 }
 
-                                // --- MODO VISTA NORMAL ---
+                                // ==========================================
+                                // MODO LECTURA NORMAL (Armonioso)
+                                // ==========================================
                                 return (
-                                    <div key={product.id} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLowStock ? 'bg-error' : 'bg-primary'}`}></div>
-                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+                                    <div key={product.id} className="bg-surface-container-lowest dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLowStock ? 'bg-error' : 'bg-primary dark:bg-dark-primary/40'}`}></div>
 
-                                            <div className="flex items-center gap-md min-w-[240px]">
-                                                <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${isLowStock ? 'bg-error-container text-error' : 'bg-surface-container-high text-primary'}`}>
-                                                    <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                                        {isLowStock ? 'warning' : 'icecream'}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1 font-bold">{product.name}</h3>
-                                                    {product.category_id == 1 ? (
-                                                        <span className="bg-pink-100 text-pink-600 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase">
-                                                            TETA
-                                                        </span>
-                                                    ) : (
-                                                        <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase">
-                                                            HELADO
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pl-2 w-full">
 
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-md md:gap-lg w-full md:w-auto flex-grow">
-                                                <div className="flex flex-col">
-                                                    <span className="font-label-md text-label-md text-on-surface-variant mb-1 font-bold">STOCK</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`font-headline-sm text-headline-sm font-black ${isLowStock ? 'text-error' : 'text-on-surface'}`}>{product.stock}</span>
-                                                        <span className="text-body-sm text-on-surface-variant">und</span>
+                                            {/* Cabecera Móvil (Icono + Textos + Acciones) */}
+                                            <div className="flex items-start justify-between w-full md:w-auto md:min-w-[240px]">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center shrink-0 border dark:border-dark-outline ${isLowStock ? 'bg-error-container/20 text-error' : 'bg-surface-container-high dark:bg-dark-background text-primary dark:text-dark-primary'}`}>
+                                                        <span className="material-symbols-outlined text-[20px] md:text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                                            {isLowStock ? 'warning' : 'icecream'}
+                                                        </span>
                                                     </div>
-                                                    <div className="w-full bg-surface-container h-1.5 rounded-full mt-2">
-                                                        <div className={`${isLowStock ? 'bg-error' : 'bg-primary'} h-1.5 rounded-full`} style={{ width: `${getStockPercentage(product.stock)}%` }}></div>
+                                                    <div>
+                                                        <h3 className="font-headline-sm text-on-surface dark:text-dark-on-surface mb-0.5 font-bold uppercase text-xs md:text-sm tracking-tight line-clamp-1">{product.name}</h3>
+                                                        {product.category_id == 1 ? (
+                                                            <span className="bg-pink-100 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border dark:border-pink-500/20">TETA</span>
+                                                        ) : (
+                                                            <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border dark:border-blue-500/20">HELADO</span>
+                                                        )}
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col">
-                                                    <span className="font-label-md text-label-md text-on-surface-variant mb-1 font-bold">PRECIO (BS)</span>
-                                                    <span className="font-body-md text-body-md text-on-surface font-bold">{precioBs} Bs</span>
-                                                </div>
-
-                                                <div className="flex flex-col">
-                                                    <span className="font-label-md text-label-md text-on-surface-variant mb-1 font-bold">PRECIO (USD)</span>
-                                                    <span className="font-body-md text-body-md text-on-surface-variant px-2 py-1 bg-surface-container-low rounded-md inline-block w-24 text-right font-bold">
-                                                        ${precioUSD}
-                                                    </span>
+                                                {/* Botones Visibles en Móvil */}
+                                                <div className="flex md:hidden items-center gap-1">
+                                                    <button onClick={() => setEditingId(product.id)} className="p-1.5 text-on-surface-variant dark:text-dark-on-surface-variant bg-surface-container-low dark:bg-dark-background rounded-md transition-colors border dark:border-dark-outline"><span className="material-symbols-outlined text-[16px]">edit_square</span></button>
+                                                    <button onClick={() => setProductToDelete(product)} className="p-1.5 text-error/80 bg-error/10 dark:bg-error/5 rounded-md transition-colors border dark:border-error/20"><span className="material-symbols-outlined text-[16px]">delete_forever</span></button>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-end w-full md:w-auto gap-2 border-t md:border-t-0 border-outline-variant pt-md md:pt-0 mt-2 md:mt-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => setEditingId(product.id)}
-                                                    className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <span className="material-symbols-outlined text-[20px]">edit</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setProductToDelete(product)}
-                                                    className="text-on-surface-variant hover:text-error transition-colors p-2 rounded-lg hover:bg-error/10"
-                                                    title="Eliminar producto"
-                                                >
-                                                    <span className="material-symbols-outlined text-[20px]">delete</span>
-                                                </button>
+                                            {/* Grilla Central de Stats (3 Columnas exactas siempre) */}
+                                            <div className="grid grid-cols-3 gap-2 md:gap-6 w-full flex-grow items-center border-t border-outline-variant/30 dark:border-dark-outline/50 md:border-none pt-3 md:pt-0">
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Stock</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className={`font-bold text-sm md:text-base leading-none ${isLowStock ? 'text-error' : 'text-on-surface dark:text-white'}`}>{product.stock}</span>
+                                                        <span className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant uppercase hidden sm:inline">und</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Precio Bs</span>
+                                                    <span className="font-bold text-sm md:text-base text-on-surface dark:text-dark-on-surface leading-none mt-0.5">{precioBs}</span>
+                                                </div>
+
+                                                <div className="flex flex-col md:items-start items-end">
+                                                    <span className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 whitespace-nowrap">Ref USD</span>
+                                                    <span className="font-black text-sm md:text-base text-primary dark:text-dark-primary leading-none mt-0.5">${precioUSD}</span>
+                                                </div>
+
+                                            </div>
+
+                                            {/* Botones Visibles en PC (Al hacer hover) */}
+                                            <div className="hidden md:flex items-center gap-1 ml-2">
+                                                <button onClick={() => setEditingId(product.id)} className="p-2 text-on-surface-variant dark:text-dark-on-surface-variant hover:text-primary dark:hover:text-dark-primary hover:bg-surface-container-high dark:hover:bg-dark-background rounded-full transition-colors border border-transparent dark:hover:border-dark-outline"><span className="material-symbols-outlined text-[20px]">edit_square</span></button>
+                                                <button onClick={() => setProductToDelete(product)} className="p-2 text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error rounded-full hover:bg-error/10 transition-colors border border-transparent dark:hover:border-error/20"><span className="material-symbols-outlined text-[20px]">delete_forever</span></button>
                                             </div>
 
                                         </div>
@@ -255,133 +207,102 @@ export default function Index({ auth, products }) {
                     </div>
                 </main>
             </div>
-            {/* Modal Personalizado de Confirmación de Eliminación */}
+
+            {/* Modal Eliminación */}
             {productToDelete && (
-                <div className="fixed inset-0 bg-on-background/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-surface-container-lowest rounded-xl p-lg w-full max-w-sm shadow-2xl">
-
+                <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
+                    <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-lg w-full max-w-sm shadow-2xl border dark:border-dark-outline">
                         <div className="flex items-center gap-3 mb-4 text-error">
-                            <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-[24px]">warning</span>
+                            <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0 border border-error/20">
+                                <span className="material-symbols-outlined text-[24px]">warning_amber</span>
                             </div>
-                            <h3 className="font-headline-sm font-bold text-on-surface">¿Eliminar Producto?</h3>
+                            <h3 className="font-headline-sm font-bold text-on-surface dark:text-white uppercase tracking-tighter">Eliminar Producto</h3>
                         </div>
-
-                        <p className="text-body-md text-on-surface-variant mb-6 ml-1">
-                            Estás a punto de eliminar <strong>"{productToDelete.name}"</strong>. Esta acción no se puede deshacer.
-                        </p>
-
-                        <div className="flex justify-end gap-2 border-t border-outline-variant pt-4">
-                            <button
-                                onClick={() => setProductToDelete(null)}
-                                className="px-4 py-2 text-on-surface-variant font-bold hover:bg-surface-container-high rounded-lg transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={() => {
-                                    router.delete(route('products.destroy', productToDelete.id), {
-                                        onSuccess: () => setProductToDelete(null) // Cierra el modal si se borró con éxito
-                                    });
-                                }}
-                                className="px-4 py-2 bg-error text-onError hover:bg-error/90 font-bold rounded-lg shadow-sm transition-colors"
-                            >
-                                Sí, Eliminar
-                            </button>
+                        <p className="text-sm text-on-surface-variant dark:text-dark-on-surface-variant mb-6 leading-relaxed">¿Seguro que deseas eliminar <strong className="text-on-surface dark:text-white">"{productToDelete.name}"</strong>? Esta acción es irreversible.</p>
+                        <div className="flex justify-end gap-3 border-t border-outline-variant dark:border-dark-outline pt-4">
+                            <button onClick={() => setProductToDelete(null)} className="px-4 py-2 text-on-surface-variant dark:text-dark-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high dark:hover:bg-dark-background rounded-lg transition-all border border-transparent dark:hover:border-dark-outline">Cancelar</button>
+                            <button onClick={() => {
+                                router.delete(route('products.destroy', productToDelete.id), {
+                                    onSuccess: () => {
+                                        setProductToDelete(null);
+                                        showToast('¡Producto eliminado del inventario!'); // <-- AÑADIDO
+                                    }
+                                });
+                            }} className="px-5 py-2 bg-error text-onError hover:bg-error/90 font-black text-xs uppercase rounded-lg shadow-lg">Confirmar</button>
                         </div>
-
                     </div>
                 </div>
             )}
-            {/* Modal de Nuevo Producto */}
+
+            {/* Modal Nuevo Producto */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 bg-on-background/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-surface-container-lowest rounded-xl p-lg w-full max-w-md shadow-2xl">
-                        <div className="flex justify-between items-center mb-md">
-                            <h3 className="font-headline-md text-headline-md font-bold text-on-surface">Registrar Producto</h3>
-                            <button onClick={() => setIsCreateModalOpen(false)} className="text-on-surface-variant hover:text-error">
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
+                <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
+                    <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-lg w-full max-w-md shadow-2xl border dark:border-dark-outline">
+                        <div className="flex justify-between items-center mb-md border-b dark:border-dark-outline pb-4">
+                            <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-sm tracking-widest">Registrar Nuevo Item</h3>
+                            <button onClick={() => setIsCreateModalOpen(false)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors"><span className="material-symbols-outlined">close</span></button>
                         </div>
-
-                        <form onSubmit={submitCreate} className="flex flex-col gap-4">
+                        <form onSubmit={submitCreate} className="flex flex-col gap-5 mt-4">
                             <div>
-                                <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Nombre del Producto</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={data.name}
-                                    onChange={e => setData('name', e.target.value)}
-                                    className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
-                                    placeholder="Ej. Teta de Nutella"
-                                />
+                                <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Nombre del Producto</label>
+                                <input type="text" required value={data.name} onChange={e => setData('name', e.target.value)} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white transition-colors text-sm ${errors.name ? 'border-error focus:border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary dark:focus:border-dark-primary'}`} placeholder="Ej. Teta de Nutella" />
+                                {errors.name && <p className="text-error text-[10px] font-bold uppercase tracking-wider mt-1">{errors.name}</p>}
                             </div>
-
                             <div>
-                                <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Categoría</label>
-                                <select
-                                    value={data.category_id}
-                                    onChange={e => setData('category_id', e.target.value)}
-                                    className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
-                                >
+                                <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Categoría</label>
+                                <select value={data.category_id} onChange={e => setData('category_id', e.target.value)} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white transition-colors text-sm ${errors.category_id ? 'border-error focus:border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary dark:focus:border-dark-primary'}`}>
                                     <option value="1">Tetas</option>
                                     <option value="2">Helados</option>
                                 </select>
+                                {errors.category_id && <p className="text-error text-[10px] font-bold uppercase tracking-wider mt-1">{errors.category_id}</p>}
                             </div>
 
-                            <div>
-                                <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Stock Inicial</label>
-                                <input
-                                    type="number"
-                                    required
-                                    min="0"
-                                    value={data.stock}
-                                    onChange={e => setData('stock', e.target.value)}
-                                    className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Precio (Bs)</label>
-                                    <input
-                                        type="number"
-                                        required step="0.01" min="0"
-                                        value={data.price}
-                                        onChange={e => setData('price', e.target.value)}
-                                        className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-on-surface font-bold"
-                                    />
+                                    <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest whitespace-nowrap">Stock Inicial</label>
+                                    <input type="number" required min="0" value={data.stock} onChange={e => setData('stock', e.target.value)} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white text-sm transition-colors ${errors.stock ? 'border-error focus:border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary dark:focus:border-dark-primary'}`} />
+                                    {errors.stock && <p className="text-error text-[10px] font-bold uppercase tracking-wider mt-1">{errors.stock}</p>}
                                 </div>
                                 <div>
-                                    <label className="font-label-md text-on-surface-variant mb-1 block font-bold">Precio ($)</label>
+                                    <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest whitespace-nowrap">Precio (Bs)</label>
+                                    <input type="number" required step="0.01" min="0" value={data.price} onChange={e => setData('price', e.target.value)} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white font-black text-sm transition-colors ${errors.price ? 'border-error focus:border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary dark:focus:border-dark-primary'}`} />
+                                    {errors.price && <p className="text-error text-[10px] font-bold uppercase tracking-wider mt-1">{errors.price}</p>}
+                                </div>
+                                <div>
+                                    <label className="font-label-md text-primary dark:text-dark-primary mb-1.5 block font-black text-[10px] uppercase tracking-widest whitespace-nowrap">Precio ($)</label>
                                     <input
                                         type="number"
                                         required step="0.01" min="0"
                                         value={data.price ? (data.price / tasaBCV).toFixed(2) : ''}
                                         onChange={e => setData('price', (e.target.value * tasaBCV).toFixed(2))}
-                                        className="w-full bg-primary-container/10 border border-primary rounded-lg px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary text-primary font-bold shadow-sm"
+                                        className="w-full bg-primary/5 dark:bg-dark-primary/10 border border-primary/30 dark:border-dark-primary/30 rounded-lg px-3 py-2 text-primary dark:text-dark-primary font-black text-sm focus:border-primary dark:focus:border-dark-primary shadow-sm transition-colors"
+                                        placeholder="0.00"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-outline-variant">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsCreateModalOpen(false)}
-                                    className="px-4 py-2 text-on-surface-variant font-bold hover:bg-surface-container-high rounded-lg transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="px-4 py-2 bg-primary text-on-primary font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-                                >
-                                    {processing ? 'Guardando...' : 'Guardar Producto'}
+                            {/* Mostrar un error general si existe */}
+                            {Object.keys(errors).length > 0 && (
+                                <div className="p-3 bg-error/10 border border-error/30 rounded-lg">
+                                    <p className="text-error font-bold text-[10px] uppercase tracking-widest">Por favor, corrige los errores antes de guardar.</p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 mt-2 border-t border-outline-variant dark:border-dark-outline pt-4">
+                                <button type="button" onClick={() => { setIsCreateModalOpen(false); reset(); }} className="px-4 py-2 text-on-surface-variant dark:text-dark-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high dark:hover:bg-dark-background transition-all rounded-lg border border-transparent dark:hover:border-dark-outline">Cancelar</button>
+                                <button type="submit" disabled={processing} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 disabled:opacity-50 shadow-lg border dark:border-dark-primary/20">
+                                    {processing ? 'Procesando...' : 'Guardar Item'}
                                 </button>
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+            {/* Notificación Toast */}
+            {toast && (
+                <div className="fixed top-24 right-4 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background px-6 py-3 rounded-lg shadow-2xl z-[200] font-black animate-fade-in flex items-center gap-2 border dark:border-dark-primary/30">
+                    <span className="material-symbols-outlined">check_circle</span>
+                    <span className="text-xs uppercase tracking-widest">{toast}</span>
                 </div>
             )}
         </MainLayout>
