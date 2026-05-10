@@ -46,13 +46,13 @@ export default function MainLayout({ children }) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
                     <div className="flex justify-between h-16 items-center">
 
-                        {/* Logo a la izquierda */}
-                        <div className="flex items-center gap-2 shrink-0">
+                        {/* Logo a la izquierda (Ahora es clickeable) */}
+                        <Link href={route('dashboard')} className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity cursor-pointer">
                             <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[28px]">icecream</span>
                             <span className="font-headline-sm font-bold text-primary dark:text-dark-primary hidden sm:block tracking-wide">
                                 ScoopMaster Pro
                             </span>
-                        </div>
+                        </Link>
 
                         {/* Enlaces al centro (SOLO PC / TABLET HORIZONTAL) */}
                         <div className="hidden md:flex space-x-2">
@@ -61,8 +61,8 @@ export default function MainLayout({ children }) {
                                     key={link.name}
                                     href={link.href}
                                     className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${link.active
-                                            ? 'bg-primary text-on-primary shadow-sm dark:bg-dark-primary dark:text-dark-background'
-                                            : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface dark:text-dark-on-surface-variant dark:hover:bg-dark-background dark:hover:text-dark-on-surface'
+                                        ? 'bg-primary text-on-primary shadow-sm dark:bg-dark-primary dark:text-dark-background'
+                                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface dark:text-dark-on-surface-variant dark:hover:bg-dark-background dark:hover:text-dark-on-surface'
                                         }`}
                                 >
                                     {link.name}
@@ -103,8 +103,8 @@ export default function MainLayout({ children }) {
                             key={link.name}
                             href={link.href}
                             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${link.active
-                                    ? 'text-primary dark:text-dark-primary'
-                                    : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:text-on-surface dark:hover:text-white'
+                                ? 'text-primary dark:text-dark-primary'
+                                : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:text-on-surface dark:hover:text-white'
                                 }`}
                         >
                             <span className={`material-symbols-outlined text-[24px] ${link.active ? 'drop-shadow-sm' : ''}`} style={link.active ? { fontVariationSettings: "'FILL' 1" } : {}}>

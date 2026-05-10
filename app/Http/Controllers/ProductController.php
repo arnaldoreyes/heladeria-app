@@ -94,4 +94,39 @@ class ProductController extends Controller
         // Retornamos a la vista actual sin recargar
         return back()->with('success', 'Producto eliminado correctamente');
     }
+
+    // Eliminar varios productos a la vez
+    public function bulkDestroy(\Illuminate\Http\Request $request)
+    {
+        $request->validate(['ids' => 'required|array']);
+        \App\Models\Product::whereIn('id', $request->ids)->delete();
+        
+        return redirect()->back();
+    }
+
+    // Actualización masiva (Precio y/o Stock)
+    public function bulkUpdate(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'price' => 'nullable|numeric|min:0',
+            'stock' => 'nullable|integer|min:0'
+        ]);
+        
+        $data = [];
+        
+        // Solo actualiza lo que el usuario haya llenado en el modal
+        if ($request->filled('price')) {
+            $data['price'] = $request->price;
+        }
+        if ($request->filled('stock')) {
+            $data['stock'] = $request->stock;
+        }
+
+        if (!empty($data)) {
+            \App\Models\Product::whereIn('id', $request->ids)->update($data);
+        }
+
+        return redirect()->back();
+    }
 }

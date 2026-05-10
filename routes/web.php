@@ -28,6 +28,10 @@ Route::get('/dashboard', function () {
     ]);
 })->name('dashboard');
 
+// Rutas Masivas para el Inventario
+Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy'])->name('products.bulkDestroy');
+Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
+
 // Rutas de gestión y ventas sin restricciones
 Route::resource('categories', CategoryController::class);
 Route::resource('products', ProductController::class);
