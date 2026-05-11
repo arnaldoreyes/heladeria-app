@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 
 export default function MainLayout({ children }) {
-    const { url } = usePage();
 
     const [isDarkMode, setIsDarkMode] = useState(false);
+
+    const { url } = usePage();
+    const { tasa_bcv } = usePage().props;
 
     useEffect(() => {
         const savedTheme = localStorage.getItem('theme');
@@ -73,7 +75,7 @@ export default function MainLayout({ children }) {
                         {/* Controles a la derecha */}
                         <div className="flex items-center gap-3 shrink-0">
                             <div className="bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-dark-on-surface font-bold text-sm px-4 py-1.5 rounded-full border border-outline-variant/50 dark:border-dark-outline shadow-sm transition-colors">
-                                BCV: 500.46 Bs
+                                BCV: {tasa_bcv.toFixed(2)} Bs
                             </div>
 
                             <button

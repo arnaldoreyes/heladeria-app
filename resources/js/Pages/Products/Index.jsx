@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
 export default function Index({ auth, products }) {
-    const tasaBCV = 500.46;
+    const { tasa_bcv } = usePage().props;
+    const tasaBCV = tasa_bcv;
     const [editingId, setEditingId] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);

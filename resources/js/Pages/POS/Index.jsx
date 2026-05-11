@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
 export default function POS({ products }) {
-    const tasaBCV = 500.46;
+    const { tasa_bcv } = usePage().props;
+    const tasaBCV = tasa_bcv;
 
     const [cart, setCart] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
