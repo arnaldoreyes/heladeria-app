@@ -5,6 +5,7 @@ import MainLayout from '@/Layouts/MainLayout';
 export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVentas, ventasRecientes }) {
 
     const [selectedSale, setSelectedSale] = useState(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     const formatMoney = (amount) => {
         return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
@@ -15,7 +16,12 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
         return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
     };
 
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    // --- DICCIONARIO DE ICONOS PARA MÉTODOS DE PAGO ---
+    const paymentIcons = {
+        'Efectivo': 'payments',
+        'Pago Movil': 'smartphone',
+        'Divisas': 'attach_money'
+    };
 
     return (
         <MainLayout>
@@ -65,7 +71,7 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
                         </h2>
                         {/* Botón para abrir el Historial Completo */}
                         <button
-                            onClick={() => setIsHistoryOpen(true)} // Necesitaremos este estado
+                            onClick={() => setIsHistoryOpen(true)}
                             className="flex items-center gap-2 text-[11px] font-black text-primary dark:text-dark-primary uppercase tracking-widest hover:opacity-80 transition-all"
                         >
                             <span className="material-symbols-outlined text-[18px]">history</span>
@@ -87,7 +93,16 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
                                         </div>
                                         <div>
                                             <p className="font-bold text-on-surface dark:text-dark-on-surface uppercase text-xs tracking-wider group-hover:text-primary dark:group-hover:text-dark-primary">Ticket #{venta.id}</p>
-                                            <p className="text-[11px] text-on-surface-variant dark:text-dark-on-surface-variant font-medium">Hoy, {formatTime(venta.created_at)}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <p className="text-[11px] text-on-surface-variant dark:text-dark-on-surface-variant font-medium">Hoy, {formatTime(venta.created_at)}</p>
+                                                {/* BADGE MÉTODO PAGO */}
+                                                {venta.payment_method && (
+                                                    <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider bg-surface-container-high dark:bg-dark-surface px-1.5 py-0.5 rounded border dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant">
+                                                        <span className="material-symbols-outlined text-[10px]">{paymentIcons[venta.payment_method] || 'payments'}</span>
+                                                        {venta.payment_method}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
@@ -111,17 +126,48 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all">
                     <div className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline">
 
-                        <div className="px-6 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex justify-between items-center bg-primary/5 dark:bg-dark-primary/5">
-                            <div>
-                                <h2 className="font-headline-sm font-bold text-primary dark:text-dark-primary tracking-tighter">Detalle de Ticket #{selectedSale.id}</h2>
-                                <p className="text-[11px] text-on-surface-variant dark:text-dark-on-surface-variant font-bold uppercase tracking-widest mt-0.5">Registrado a las {formatTime(selectedSale.created_at)}</p>
+                        <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
+
+                            {/* Título y Cerrar */}
+                            <div className="flex justify-between items-center">
+                                <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg">Ticket #{selectedSale.id}</h2>
+                                <button
+                                    onClick={() => setSelectedSale(null)}
+                                    className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors flex items-center justify-center"
+                                >
+                                    <span className="material-symbols-outlined text-[20px]">close</span>
+                                </button>
                             </div>
-                            <button
-                                onClick={() => setSelectedSale(null)}
-                                className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error dark:bg-dark-background hover:bg-error/10 rounded-full p-2 transition-all flex items-center justify-center border dark:border-dark-outline"
-                            >
-                                <span className="material-symbols-outlined text-[18px]">close</span>
-                            </button>
+
+                            {/* Contenedor Dividido: Hora y Método de Pago */}
+                            <div className="flex items-center justify-between bg-surface-container-lowest dark:bg-dark-background rounded-xl p-3 border border-outline-variant/50 dark:border-dark-outline/50 shadow-sm">
+
+                                {/* Lado Izquierdo: Hora */}
+                                <div className="flex items-center gap-2.5 flex-1">
+                                    <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-dark-surface flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant border border-outline-variant/50 dark:border-dark-outline">
+                                        <span className="material-symbols-outlined text-[16px]">schedule</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-black uppercase tracking-widest mb-0.5">Registro</p>
+                                        <p className="text-[11px] font-bold text-on-surface dark:text-white leading-none">{formatTime(selectedSale.created_at)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Separador */}
+                                <div className="w-px h-6 bg-outline-variant dark:bg-dark-outline mx-2"></div>
+
+                                {/* Lado Derecho: Método de Pago */}
+                                <div className="flex items-center gap-2.5 flex-1 justify-end text-right">
+                                    <div>
+                                        <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-black uppercase tracking-widest mb-0.5">Pago</p>
+                                        <p className="text-[11px] font-black text-primary dark:text-dark-primary uppercase leading-none">{selectedSale.payment_method}</p>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-primary/10 dark:bg-dark-primary/10 text-primary dark:text-dark-primary flex items-center justify-center border border-primary/20 dark:border-dark-primary/20 shrink-0">
+                                        <span className="material-symbols-outlined text-[16px]">{paymentIcons[selectedSale.payment_method] || 'payments'}</span>
+                                    </div>
+                                </div>
+
+                            </div>
                         </div>
 
                         <div className="p-6 flex flex-col gap-3 max-h-[50vh] overflow-y-auto">
@@ -133,8 +179,10 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
 
                             {selectedSale.items && selectedSale.items.map(item => {
                                 const precioBs = item.product ? item.product.price : 0;
-                                const tasaFija = 500.46;
-                                const precioUsd = precioBs / tasaFija;
+                                // Para cálculos visuales correctos en históricos, lo ideal sería guardar la tasa en el ticket
+                                // y usar: const tasa = selectedSale.tasa_bcv || 500.46;
+                                const tasa = selectedSale.tasa_bcv || 500.46; // Si en el futuro lo agregas a la DB
+                                const precioUsd = item.price_bs / tasa;
                                 const totalItemUsd = precioUsd * item.quantity;
 
                                 return (
@@ -178,6 +226,7 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
                     </div>
                 </div>
             )}
+
             {/* SIDEBAR DE HISTORIAL COMPLETO */}
             <div className={`fixed inset-0 z-[110] transition-all duration-300 ${isHistoryOpen ? 'visible' : 'invisible'}`}>
                 {/* Overlay oscuro detras del sidebar */}
@@ -202,10 +251,6 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
 
                     {/* Lista de Ventas (Scrollable) */}
                     <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-2">
-                        {/* Nota: Aquí estamos usando 'ventasRecientes'. 
-                          Si en el futuro desde Laravel pasas una variable 'todasLasVentas', 
-                          solo cambias el nombre del array aquí.
-                        */}
                         {ventasRecientes.map(venta => (
                             <div
                                 key={venta.id}
@@ -218,7 +263,16 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
                                     </div>
                                     <div>
                                         <p className="font-black text-xs text-on-surface dark:text-white uppercase tracking-wider group-hover:text-primary dark:group-hover:text-dark-primary transition-colors">Ticket #{venta.id}</p>
-                                        <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant font-medium mt-0.5">{formatTime(venta.created_at)}</p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant font-medium">{formatTime(venta.created_at)}</p>
+                                            {/* BADGE MÉTODO PAGO SIDEBAR */}
+                                            {venta.payment_method && (
+                                                <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider bg-surface-container-high dark:bg-dark-surface px-1.5 py-0.5 rounded border dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant">
+                                                    <span className="material-symbols-outlined text-[10px]">{paymentIcons[venta.payment_method] || 'payments'}</span>
+                                                    {venta.payment_method}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="text-right">

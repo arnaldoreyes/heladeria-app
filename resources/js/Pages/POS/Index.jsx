@@ -10,6 +10,8 @@ export default function POS({ products }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('Todos');
     const [toast, setToast] = useState('');
+    // --- NUEVO ESTADO PARA MÉTODO DE PAGO ---
+    const [paymentMethod, setPaymentMethod] = useState('Efectivo');
 
     const addToCart = (product) => {
         setCart(prevCart => {
@@ -59,6 +61,23 @@ export default function POS({ products }) {
     const productosFiltrados = selectedCategory === 'Todos'
         ? products
         : products.filter(p => p.category?.name === selectedCategory);
+
+    // --- NUEVA FUNCIÓN EXTRAÍDA PARA ORDEN ---
+    const confirmSale = () => {
+        router.post(route('sales.store'), {
+            cart: cart,
+            tasa_bcv: tasaBCV,
+            payment_method: paymentMethod // <-- Enviando el método de pago a Laravel
+        }, {
+            onSuccess: () => {
+                setCart([]);
+                setIsModalOpen(false);
+                setPaymentMethod('Efectivo'); // Reset a default
+                setToast('¡Venta registrada exitosamente!');
+                setTimeout(() => setToast(''), 3000);
+            }
+        });
+    };
 
     return (
         <MainLayout>
@@ -215,7 +234,41 @@ export default function POS({ products }) {
                             </div>
 
                             <div className="p-md bg-surface-container-lowest dark:bg-dark-background border-t border-outline-variant dark:border-dark-outline">
-                                <div className="flex justify-between items-center mb-md">
+
+                                {/* --- NUEVA SECCIÓN: MÉTODO DE PAGO --- */}
+                                <div className="mb-4">
+                                    <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-2 block font-black text-[10px] uppercase tracking-widest">
+                                        Método de Pago
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {[
+                                            { id: 'Efectivo', icon: 'payments' },
+                                            { id: 'Pago Movil', icon: 'smartphone' },
+                                            { id: 'Divisas', icon: 'attach_money' }
+                                        ].map(method => {
+                                            const isActive = paymentMethod === method.id;
+                                            return (
+                                                <button
+                                                    key={method.id}
+                                                    type="button"
+                                                    onClick={() => setPaymentMethod(method.id)}
+                                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg font-black text-[10px] uppercase transition-all border ${isActive
+                                                            ? 'bg-primary/10 border-primary text-primary dark:bg-dark-primary/10 dark:border-dark-primary dark:text-dark-primary shadow-sm'
+                                                            : 'bg-surface-container-high dark:bg-dark-background text-on-surface-variant dark:text-dark-on-surface-variant border-transparent dark:border-dark-outline hover:bg-surface-container-highest dark:hover:bg-dark-surface'
+                                                        }`}
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px]">
+                                                        {method.icon}
+                                                    </span>
+                                                    <span className="hidden sm:inline">{method.id}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                {/* ---------------------------------- */}
+
+                                <div className="flex justify-between items-center mb-md pt-2 border-t border-outline-variant/50 dark:border-dark-outline">
                                     <p className="font-headline-sm text-on-surface dark:text-white font-black text-lg uppercase tracking-tighter">Total</p>
                                     <div className="text-right">
                                         <p className="font-headline-md text-primary dark:text-dark-primary font-black leading-none text-2xl tracking-tighter">${totalUSD.toFixed(2)}</p>
@@ -223,19 +276,7 @@ export default function POS({ products }) {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => {
-                                        router.post(route('sales.store'), {
-                                            cart: cart,
-                                            tasa_bcv: tasaBCV
-                                        }, {
-                                            onSuccess: () => {
-                                                setCart([]);
-                                                setIsModalOpen(false);
-                                                setToast('¡Venta registrada exitosamente!');
-                                                setTimeout(() => setToast(''), 3000);
-                                            }
-                                        });
-                                    }}
+                                    onClick={confirmSale} // Usando la nueva función
                                     className="w-full bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background py-sm rounded-lg font-label-md text-headline-sm font-black shadow-md hover:opacity-90 transition-all flex justify-center items-center gap-2 border dark:border-dark-primary/20"
                                 >
                                     <span className="material-symbols-outlined">verified</span>

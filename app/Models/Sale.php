@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Sale extends Model
 {
-    protected $fillable = ['total_bs', 'total_usd', 'tasa_bcv'];
+    protected $fillable = ['total_bs', 'total_usd', 'tasa_bcv', 'payment_method'];
 
     public function items()
     {

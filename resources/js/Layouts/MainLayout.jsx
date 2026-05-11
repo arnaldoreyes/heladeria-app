@@ -50,9 +50,11 @@ export default function MainLayout({ children }) {
 
                         {/* Logo a la izquierda (Ahora es clickeable) */}
                         <Link href={route('dashboard')} className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity cursor-pointer">
-                            <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[28px]">icecream</span>
+                            <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[28px]">
+                                crown
+                            </span>
                             <span className="font-headline-sm font-bold text-primary dark:text-dark-primary hidden sm:block tracking-wide">
-                                ScoopMaster Pro
+                                Ice King Popsicle
                             </span>
                         </Link>
 
