@@ -5,6 +5,15 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 
+// --- IMPORTAMOS EL REGISTRO VIRTUAL DEL SERVICE WORKER ---
+import { registerSW } from 'virtual:pwa-register';
+
+// Registramos el SW inmediatamente si el navegador lo soporta
+if ('serviceWorker' in navigator) {
+    registerSW({ immediate: true });
+}
+// ---------------------------------------------------------
+
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({

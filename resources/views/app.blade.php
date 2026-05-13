@@ -18,7 +18,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' height='24' viewBox='0 -960 960 960' width='24' fill='%23006a60'><path d='M280-240h400v-80H280v80Zm-80 80q-33 0-56.5-23.5T120-240v-360l160 120 200-280 200 280 160-120v360q0 33-23.5 56.5T760-160H200Z'/></svg>">
-        <link rel="manifest" href="/manifest.json">
+        <link rel="manifest" href="/build/manifest.webmanifest">
 
         <!-- Scripts -->
         @routes
