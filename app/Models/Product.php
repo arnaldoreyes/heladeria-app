@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Product extends Model
 {
     // Permitir inserción masiva de estos campos
-    protected $fillable = ['category_id', 'name', 'price', 'stock', 'image'];
+    protected $fillable = ['category_id', 'name', 'price_bs', 'price_usd', 'stock', 'image'];
 
     // Relación: Un producto pertenece a una categoría
     public function category(): BelongsTo

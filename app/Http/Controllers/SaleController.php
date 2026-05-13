@@ -5,28 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Product;
-use App\Http\Requests\StoreSaleRequest; // <-- IMPORTAMOS EL REQUEST
+use App\Http\Requests\StoreSaleRequest;
 use Illuminate\Support\Facades\DB;
 
 class SaleController extends Controller
 {
-    // Inyectamos el StoreSaleRequest en lugar del genérico Request
     public function store(StoreSaleRequest $request) 
     {
-        // Si el código llega aquí, es porque TODO ya fue validado por Laravel.
-
         DB::beginTransaction();
 
         try {
             $totalBs = 0;
-            $tasaBcv = $request->validated('tasa_bcv'); // Usamos validated() por seguridad
+            $totalUsd = 0; // <-- Agregamos sumatoria paralela para cuadrar exacto con React
+            $tasaBcv = $request->validated('tasa_bcv');
 
-            // Creamos la venta "vacía" primero, ahora incluyendo el método de pago
+            // Creamos la venta "vacía" primero
             $sale = Sale::create([
                 'total_bs' => 0, 
                 'total_usd' => 0,
                 'tasa_bcv' => $tasaBcv,
-                'payment_method' => $request->validated('payment_method'), // <-- GUARDAMOS EL MÉTODO
+                'payment_method' => $request->validated('payment_method'),
             ]);
 
             // Recorremos el carrito
@@ -37,23 +35,29 @@ class SaleController extends Controller
                     throw new \Exception("Stock insuficiente para: {$product->name}");
                 }
 
-                $subtotalBs = $product->price * $item['quantity'];
+                // <-- CORRECCIÓN: Usamos price_bs y price_usd directamente del modelo Product
+                $subtotalBs = $product->price_bs * $item['quantity'];
+                $subtotalUsd = $product->price_usd * $item['quantity'];
+                
                 $totalBs += $subtotalBs;
+                $totalUsd += $subtotalUsd;
 
+                // Creamos el detalle de la venta
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $product->id,
                     'quantity' => $item['quantity'],
-                    'price_bs' => $product->price,
+                    'price_bs' => $product->price_bs, // <-- Pasamos el campo correcto
+                    // 'price_usd' => $product->price_usd, // (Descomenta esta línea si tu tabla sale_items también tiene la columna price_usd)
                 ]);
 
                 $product->decrement('stock', $item['quantity']);
             }
 
-            // Actualizamos el total real de la venta
+            // Actualizamos la venta con los totales exactos
             $sale->update([
                 'total_bs' => $totalBs,
-                'total_usd' => $totalBs / $tasaBcv
+                'total_usd' => $totalUsd // <-- Sinergia total, cero desfases por redondeo
             ]);
 
             DB::commit();

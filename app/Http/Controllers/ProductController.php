@@ -3,128 +3,87 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
+use App\Http\Requests\BulkUpdateProductRequest;
+use App\Http\Requests\BulkDestroyProductRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        // Traemos los productos junto con el nombre de su categoría
         $products = Product::with('category')->latest()->get();
         
-        // Enviamos los datos a un componente de React llamado 'Products/Index'
         return Inertia::render('Products/Index', [
             'products' => $products
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-   public function store(Request $request)
+    // Inyectamos StoreProductRequest
+    public function store(StoreProductRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'stock' => 'required|integer|min:0',
-            'price' => 'required|numeric|min:0',
-            'category_id' => 'required|exists:categories,id', // <-- Añadimos esta línea
-        ]);
-
-        Product::create($validated);
+        // $request->validated() devuelve solo la data limpia y segura
+        Product::create($request->validated());
 
         return back()->with('success', 'Producto registrado exitosamente');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Product $product)
     {
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Product $product)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Product $product)
+    // Inyectamos UpdateProductRequest
+    public function update(UpdateProductRequest $request, Product $product)
     {
-        // 1. Validamos la data que viene de React
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'stock' => 'required|integer|min:0',
-            'price' => 'required|numeric|min:0', // Recordar: Este es el precio en Bs
-            'category_id' => 'required|exists:categories,id',
-        ]);
+        $product->update($request->validated());
 
-        // 2. Actualizamos el producto en la BD
-        $product->update($validated);
-
-        // 3. Retornamos sin recargar la página
         return back()->with('success', 'Producto actualizado');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Product $product)
     {
-        // Eliminamos el producto de la base de datos
         $product->delete();
 
-        // Retornamos a la vista actual sin recargar
         return back()->with('success', 'Producto eliminado correctamente');
     }
 
-    // Eliminar varios productos a la vez
-    public function bulkDestroy(\Illuminate\Http\Request $request)
+    // Inyectamos BulkDestroyProductRequest
+    public function bulkDestroy(BulkDestroyProductRequest $request)
     {
-        $request->validate(['ids' => 'required|array']);
-        \App\Models\Product::whereIn('id', $request->ids)->delete();
+        Product::whereIn('id', $request->validated('ids'))->delete();
         
         return redirect()->back();
     }
 
-    // Actualización masiva (Precio y/o Stock)
-    public function bulkUpdate(\Illuminate\Http\Request $request)
+    // Inyectamos BulkUpdateProductRequest
+    public function bulkUpdate(BulkUpdateProductRequest $request)
     {
-        $request->validate([
-            'ids' => 'required|array',
-            'price' => 'nullable|numeric|min:0',
-            'stock' => 'nullable|integer|min:0'
-        ]);
-        
         $data = [];
         
-        // Solo actualiza lo que el usuario haya llenado en el modal
-        if ($request->filled('price')) {
-            $data['price'] = $request->price;
+        if ($request->filled('price_bs') && $request->filled('price_usd')) {
+            $data['price_bs'] = $request->price_bs;
+            $data['price_usd'] = $request->price_usd;
         }
+        
         if ($request->filled('stock')) {
             $data['stock'] = $request->stock;
         }
 
         if (!empty($data)) {
-            \App\Models\Product::whereIn('id', $request->ids)->update($data);
+            Product::whereIn('id', $request->validated('ids'))->update($data);
         }
 
         return redirect()->back();

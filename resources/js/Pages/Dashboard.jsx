@@ -178,11 +178,11 @@ export default function Dashboard({ totalVentasBs, totalVentasUsd, cantidadVenta
                             </div>
 
                             {selectedSale.items && selectedSale.items.map(item => {
-                                const precioBs = item.product ? item.product.price : 0;
-                                // Para cálculos visuales correctos en históricos, lo ideal sería guardar la tasa en el ticket
-                                // y usar: const tasa = selectedSale.tasa_bcv || 500.46;
-                                const tasa = selectedSale.tasa_bcv || 500.46; // Si en el futuro lo agregas a la DB
-                                const precioUsd = item.price_bs / tasa;
+                                // CORRECCIÓN: Leemos la tasa real de la venta o usamos 1 por seguridad
+                                const tasa = selectedSale.tasa_bcv || 1;
+                                // Leemos el precio exacto guardado en la tabla de items al momento de la venta
+                                const precioItemBs = Number(item.price_bs) || 0;
+                                const precioUsd = precioItemBs / tasa;
                                 const totalItemUsd = precioUsd * item.quantity;
 
                                 return (

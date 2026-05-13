@@ -17,7 +17,8 @@ return new class extends Migration
         $table->foreignId('category_id')->constrained()->onDelete('cascade'); 
         
         $table->string('name');
-        $table->decimal('price', 8, 2); // Hasta 8 dígitos en total, 2 decimales
+        $table->decimal('price_bs', 10, 2); 
+        $table->decimal('price_usd', 10, 2);
         $table->integer('stock')->default(0);
         $table->string('image')->nullable();
         $table->timestamps();
