@@ -68,7 +68,7 @@ export default function POS({ products }) {
 
     // --- MATEMÁTICA PROTEGIDA (Precios dinámicos vs BCV) ---
     const subtotalUSD = cart.reduce((sum, item) => sum + (Number(item.product.price_usd) * item.quantity), 0);
-    const subtotalBs = subtotalUSD * tasaBCV; // Ahora nace del USD, cero desfases.
+    const subtotalBs = subtotalUSD * tasaBCV;
 
     const tetasQty = cart
         .filter(item => item.product.category_id == 1 || item.product.category?.name === 'Teta')
@@ -199,7 +199,7 @@ export default function POS({ products }) {
                             {productosProcesados.map(product => {
                                 const qty = getProductQty(product.id);
                                 const precioUSD = Number(product.price_usd).toFixed(2);
-                                // CÁLCULO DINÁMICO DEL PRECIO EN BS
+                                // FIX: Cálculo dinámico del precio en Bolívares usando la tasa del header
                                 const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
 
                                 return (
@@ -293,7 +293,7 @@ export default function POS({ products }) {
 
                             <div className="p-md flex flex-col gap-sm max-h-[40vh] overflow-y-auto">
                                 {cart.map(item => {
-                                    // PRECIO REAL PARA EL TICKET BASADO EN TASA ACTUAL
+                                    // PRECIO DINÁMICO EN EL TICKET
                                     const itemBs = (Number(item.product.price_usd) * tasaBCV).toFixed(2);
 
                                     return (

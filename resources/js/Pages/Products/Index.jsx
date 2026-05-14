@@ -4,7 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 
 export default function Index({ auth, products }) {
     const { tasa_bcv } = usePage().props;
-    const tasaBCV = tasa_bcv;
+    const tasaBCV = Number(tasa_bcv);
     const [editingId, setEditingId] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
@@ -109,7 +109,6 @@ export default function Index({ auth, products }) {
 
     const toggleAll = () => {
         if (selectedIds.length > 0) setSelectedIds([]);
-        // Ahora selecciona solo los que están visibles según el filtro
         else setSelectedIds(productosProcesados.map(p => p.id));
     };
 
@@ -213,7 +212,8 @@ export default function Index({ auth, products }) {
                                 const isSelected = selectedIds.includes(product.id);
 
                                 const precioUSD = Number(product.price_usd).toFixed(2);
-                                const precioBs = Number(product.price_bs).toFixed(2);
+
+                                const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
 
                                 if (isEditing) {
                                     return (
@@ -243,7 +243,8 @@ export default function Index({ auth, products }) {
 
                                                     <div className="flex flex-col">
                                                         <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Precio Bs</label>
-                                                        <input id={`edit_price_bs_${product.id}`} type="text" inputMode="decimal" className="font-body-md text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" defaultValue={product.price_bs} onChange={(e) => {
+                                                        {/* Al editar, cargamos el precio dinámico, no el estático */}
+                                                        <input id={`edit_price_bs_${product.id}`} type="text" inputMode="decimal" className="font-body-md text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" defaultValue={precioBs} onChange={(e) => {
                                                             const val = sanitizeDecimal(e.target.value);
                                                             e.target.value = val;
                                                             document.getElementById(`edit_price_usd_${product.id}`).value = val ? (val / tasaBCV).toFixed(2) : '';
