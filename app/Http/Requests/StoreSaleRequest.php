@@ -25,6 +25,11 @@ class StoreSaleRequest extends FormRequest
             'cart.*.quantity' => 'required|integer|min:1',
             'tasa_bcv' => 'required|numeric|min:0.01',
             'payment_method' => 'required|string|in:Efectivo,Pago Movil,Divisas',
+            'subtotal_bs' => 'required|numeric',
+            'discount_bs' => 'required|numeric',
+            'total_bs' => 'required|numeric',
+            'total_usd' => 'required|numeric',
+            'change_loss_bs' => 'required|numeric',
         ];
     }
 

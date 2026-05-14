@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
@@ -16,9 +16,23 @@ export default function Index({ auth, products }) {
     const [bulkPriceBs, setBulkPriceBs] = useState('');
     const [bulkStock, setBulkStock] = useState('');
 
-    // --- NUEVOS ESTADOS DE FILTRO Y ORDENAMIENTO ---
-    const [selectedCategory, setSelectedCategory] = useState('Todos');
-    const [sortBy, setSortBy] = useState('name_asc');
+    // --- ESTADOS DE FILTRO Y ORDENAMIENTO (CON PERSISTENCIA LOCAL) ---
+    const [selectedCategory, setSelectedCategory] = useState(() => {
+        return localStorage.getItem('ik_inventory_category') || 'Todos';
+    });
+
+    const [sortBy, setSortBy] = useState(() => {
+        return localStorage.getItem('ik_inventory_sort') || 'name_asc';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('ik_inventory_category', selectedCategory);
+    }, [selectedCategory]);
+
+    useEffect(() => {
+        localStorage.setItem('ik_inventory_sort', sortBy);
+    }, [sortBy]);
+    // -----------------------------------------------------------------
 
     const showToast = (message) => {
         setToast(message);
@@ -71,12 +85,24 @@ export default function Index({ auth, products }) {
         : products.filter(p => p.category?.name === selectedCategory);
 
     productosProcesados.sort((a, b) => {
+        const stockA = Number(a.stock);
+        const stockB = Number(b.stock);
+
+        const aSinStock = stockA <= 0;
+        const bSinStock = stockB <= 0;
+
+        if (aSinStock && !bSinStock) return 1;
+        if (!aSinStock && bSinStock) return -1;
+
+        if (aSinStock && bSinStock) {
+            return a.name.localeCompare(b.name);
+        }
+
         if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
-        if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
         if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
         if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
-        if (sortBy === 'stock_desc') return Number(b.stock) - Number(a.stock);
-        if (sortBy === 'stock_asc') return Number(a.stock) - Number(b.stock);
+        if (sortBy === 'stock_desc') return stockB - stockA;
+        if (sortBy === 'stock_asc') return stockA - stockB;
         return 0;
     });
     // -----------------------------------------------------------
@@ -122,14 +148,10 @@ export default function Index({ auth, products }) {
                 <main className="flex-grow w-full max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-md md:py-xl relative">
 
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-md gap-sm md:gap-0">
-                        <div>
-                            <h2 className="font-headline-lg text-headline-lg text-on-surface dark:text-white mb-xs font-bold transition-colors tracking-tight">Gestión de Inventario</h2>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant dark:text-dark-on-surface-variant">Administra niveles de stock, categorías y precios.</p>
-                        </div>
                         <div className="flex items-center gap-sm w-full md:w-auto mt-sm md:mt-0">
                             {productosProcesados.length > 0 && (
                                 <button onClick={toggleAll} className="text-xs font-black uppercase text-on-surface-variant dark:text-dark-on-surface-variant hover:text-primary dark:hover:text-dark-primary transition-colors px-3">
-                                    {selectedIds.length > 0 ? 'Deseleccionar Todos' : 'Seleccionar Visibles'}
+                                    {selectedIds.length > 0 ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
                                 </button>
                             )}
                             <button
@@ -170,7 +192,6 @@ export default function Index({ auth, products }) {
                                 className="bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline text-on-surface dark:text-white rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold uppercase tracking-widest w-full md:w-auto focus:border-primary dark:focus:border-dark-primary transition-colors cursor-pointer"
                             >
                                 <option value="name_asc">Alfabético (A-Z)</option>
-                                <option value="name_desc">Alfabético (Z-A)</option>
                                 <option value="price_desc">Mayor Precio ($)</option>
                                 <option value="price_asc">Menor Precio ($)</option>
                                 <option value="stock_desc">Mayor Stock</option>
@@ -188,7 +209,7 @@ export default function Index({ auth, products }) {
                         ) : (
                             productosProcesados.map(product => {
                                 const isEditing = editingId === product.id;
-                                const isLowStock = product.stock <= 5;
+                                const isLowStock = Number(product.stock) <= 1;
                                 const isSelected = selectedIds.includes(product.id);
 
                                 const precioUSD = Number(product.price_usd).toFixed(2);

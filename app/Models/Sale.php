@@ -2,11 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Sale extends Model
 {
-    protected $fillable = ['total_bs', 'total_usd', 'tasa_bcv', 'payment_method'];
+    use HasFactory;
+
+    protected $fillable = [
+        'total_bs',
+        'total_usd',
+        'discount_bs', 
+        'tasa_bcv',
+        'payment_method',
+        'change_loss_bs'
+    ];
 
     public function items()
     {

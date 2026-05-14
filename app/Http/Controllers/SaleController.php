@@ -15,50 +15,41 @@ class SaleController extends Controller
         DB::beginTransaction();
 
         try {
-            $totalBs = 0;
-            $totalUsd = 0; // <-- Agregamos sumatoria paralela para cuadrar exacto con React
             $tasaBcv = $request->validated('tasa_bcv');
+            $totalBs = $request->validated('total_bs');
+            $totalUsd = $request->validated('total_usd');
+            $discountBs = $request->validated('discount_bs');
+            $paymentMethod = $request->validated('payment_method');
+            $changeLossBs = $request->validated('change_loss_bs');
 
-            // Creamos la venta "vacía" primero
+            // Creamos la venta ya con los datos finales
             $sale = Sale::create([
-                'total_bs' => 0, 
-                'total_usd' => 0,
+                'total_bs' => $totalBs, 
+                'total_usd' => $totalUsd,
+                'discount_bs' => $discountBs, 
                 'tasa_bcv' => $tasaBcv,
-                'payment_method' => $request->validated('payment_method'),
+                'payment_method' => $paymentMethod,
+                'change_loss_bs' => $changeLossBs,
             ]);
 
-            // Recorremos el carrito
             foreach ($request->validated('cart') as $item) {
-                $product = Product::find($item['product']['id']);
+                $product = Product::lockForUpdate()->find($item['product']['id']);
 
-                if ($product->stock < $item['quantity']) {
-                    throw new \Exception("Stock insuficiente para: {$product->name}");
+                if (!$product || $product->stock < $item['quantity']) {
+                    throw new \Exception("Stock insuficiente para: " . ($product->name ?? 'Producto desconocido'));
                 }
 
-                // <-- CORRECCIÓN: Usamos price_bs y price_usd directamente del modelo Product
-                $subtotalBs = $product->price_bs * $item['quantity'];
-                $subtotalUsd = $product->price_usd * $item['quantity'];
-                
-                $totalBs += $subtotalBs;
-                $totalUsd += $subtotalUsd;
+                $precioRealBs = $product->price_usd * $tasaBcv;
 
-                // Creamos el detalle de la venta
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $product->id,
                     'quantity' => $item['quantity'],
-                    'price_bs' => $product->price_bs, // <-- Pasamos el campo correcto
-                    // 'price_usd' => $product->price_usd, // (Descomenta esta línea si tu tabla sale_items también tiene la columna price_usd)
+                    'price_bs' => $precioRealBs, 
                 ]);
 
                 $product->decrement('stock', $item['quantity']);
             }
-
-            // Actualizamos la venta con los totales exactos
-            $sale->update([
-                'total_bs' => $totalBs,
-                'total_usd' => $totalUsd // <-- Sinergia total, cero desfases por redondeo
-            ]);
 
             DB::commit();
 

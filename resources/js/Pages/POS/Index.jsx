@@ -1,20 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
 export default function POS({ products }) {
     const { tasa_bcv } = usePage().props;
-    const tasaBCV = tasa_bcv;
+    const tasaBCV = Number(tasa_bcv);
 
     const [cart, setCart] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [toast, setToast] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Efectivo');
 
-    // --- NUEVOS ESTADOS DE BÚSQUEDA Y ORDENAMIENTO ---
-    const [selectedCategory, setSelectedCategory] = useState('Todos');
+    // NUEVO: En lugar de pérdida, pedimos el monto que entregó el cliente
+    const [amountPaid, setAmountPaid] = useState('');
+
+    const [selectedCategory, setSelectedCategory] = useState(() => {
+        return localStorage.getItem('ik_pos_category') || 'Todos';
+    });
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortBy, setSortBy] = useState('name_asc');
+    const [sortBy, setSortBy] = useState(() => {
+        return localStorage.getItem('ik_pos_sort') || 'name_asc';
+    });
+
+    useEffect(() => localStorage.setItem('ik_pos_category', selectedCategory), [selectedCategory]);
+    useEffect(() => localStorage.setItem('ik_pos_sort', sortBy), [sortBy]);
 
     const addToCart = (product) => {
         setCart(prevCart => {
@@ -57,20 +66,37 @@ export default function POS({ products }) {
         return item ? item.quantity : 0;
     };
 
-    const totalBs = cart.reduce((sum, item) => sum + (Number(item.product.price_bs) * item.quantity), 0);
-    const totalUSD = cart.reduce((sum, item) => sum + (Number(item.product.price_usd) * item.quantity), 0);
+    // --- MATEMÁTICA PROTEGIDA (Precios dinámicos vs BCV) ---
+    const subtotalUSD = cart.reduce((sum, item) => sum + (Number(item.product.price_usd) * item.quantity), 0);
+    const subtotalBs = subtotalUSD * tasaBCV; // Ahora nace del USD, cero desfases.
 
-    // --- LÓGICA DE FILTRADO, BÚSQUEDA Y ORDENAMIENTO ---
+    const tetasQty = cart
+        .filter(item => item.product.category_id == 1 || item.product.category?.name === 'Teta')
+        .reduce((sum, item) => sum + item.quantity, 0);
+
+    const promoPairs = Math.floor(tetasQty / 2);
+    // Descuento de $0.20 USD por cada par (Protege tu margen ante subidas del BCV)
+    const discountUSD = promoPairs * 0.20;
+    const discountBs = discountUSD * tasaBCV;
+
+    const totalUSD = subtotalUSD - discountUSD;
+    const totalBs = subtotalBs - discountBs;
+
+    // --- CÁLCULO DE PÉRDIDA AUTOMÁTICO ---
+    const parsedAmountPaid = Number(amountPaid);
+    // Si metió un monto y es menor al total a cobrar, calculamos la pérdida exacta.
+    const calculatedLossBs = (parsedAmountPaid > 0 && parsedAmountPaid < totalBs)
+        ? totalBs - parsedAmountPaid
+        : 0;
+    // --------------------------------------------------------
+
     const categoriasBase = ['Todos', 'Helado', 'Teta'];
-
     let productosProcesados = [...products];
 
-    // 1. Filtro por Categoría
     if (selectedCategory !== 'Todos') {
         productosProcesados = productosProcesados.filter(p => p.category?.name === selectedCategory);
     }
 
-    // 2. Filtro por Buscador (Texto)
     if (searchQuery.trim() !== '') {
         const lowerQuery = searchQuery.toLowerCase();
         productosProcesados = productosProcesados.filter(p =>
@@ -78,26 +104,30 @@ export default function POS({ products }) {
         );
     }
 
-    // 3. Ordenamiento
     productosProcesados.sort((a, b) => {
         if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
         if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
         if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
         return 0;
     });
-    // ---------------------------------------------------
 
     const confirmSale = () => {
         router.post(route('sales.store'), {
             cart: cart,
             tasa_bcv: tasaBCV,
-            payment_method: paymentMethod
+            payment_method: paymentMethod,
+            subtotal_bs: subtotalBs,
+            discount_bs: discountBs,
+            total_bs: totalBs,
+            total_usd: totalUSD,
+            change_loss_bs: calculatedLossBs // Enviamos la pérdida procesada por el sistema
         }, {
             onSuccess: () => {
                 setCart([]);
                 setIsModalOpen(false);
                 setPaymentMethod('Efectivo');
-                setSearchQuery(''); // Limpia el buscador post-venta
+                setSearchQuery('');
+                setAmountPaid('');
                 setToast('¡Venta registrada exitosamente!');
                 setTimeout(() => setToast(''), 3000);
             }
@@ -110,17 +140,12 @@ export default function POS({ products }) {
                 <Head title="Punto de Venta" />
 
                 <main className="w-full px-margin-mobile py-md max-w-7xl mx-auto pb-40">
-
-                    {/* BARRA DE HERRAMIENTAS FLOTANTE (Sin bordes contenedores) */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 w-full">
-
-                        {/* Filtros de Categoría (Izquierda) */}
                         <div className="flex gap-2 overflow-x-auto hide-scrollbar w-full lg:w-auto">
                             {categoriasBase.map(cat => (
                                 <button
                                     key={cat}
                                     onClick={() => setSelectedCategory(cat)}
-                                    // CAMBIO AQUÍ: Quitamos py-2.5 y agregamos h-10 flex items-center justify-center
                                     className={`${selectedCategory === cat
                                         ? 'bg-primary text-on-primary shadow-sm dark:bg-dark-primary dark:text-dark-background'
                                         : 'bg-surface dark:bg-dark-surface border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'
@@ -131,14 +156,9 @@ export default function POS({ products }) {
                             ))}
                         </div>
 
-                        {/* Buscador y Select de Orden (Derecha) */}
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-
-                            {/* Buscador */}
-                            {/* CAMBIO AQUÍ: Agregamos h-10 al contenedor padre */}
                             <div className="relative w-full sm:w-64 lg:w-72 h-10">
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-dark-on-surface-variant text-[18px]">search</span>
-                                {/* CAMBIO AQUÍ: Quitamos py-2.5 y agregamos h-full */}
                                 <input
                                     type="text"
                                     placeholder="Buscar producto..."
@@ -153,10 +173,8 @@ export default function POS({ products }) {
                                 )}
                             </div>
 
-                            {/* Ordenamiento */}
                             <div className="flex items-center gap-2 w-full sm:w-auto text-on-surface-variant dark:text-dark-on-surface-variant">
                                 <span className="material-symbols-outlined text-[20px] hidden sm:block">sort</span>
-                                {/* CAMBIO AQUÍ: Quitamos py-2.5 y agregamos h-10 */}
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
@@ -168,10 +186,8 @@ export default function POS({ products }) {
                                 </select>
                             </div>
                         </div>
-
                     </div>
 
-                    {/* Grilla de Productos */}
                     {productosProcesados.length === 0 ? (
                         <div className="text-center p-12 mt-8 border border-dashed border-outline-variant dark:border-dark-outline rounded-2xl bg-surface-container-lowest dark:bg-dark-background/40">
                             <span className="material-symbols-outlined text-[48px] text-on-surface-variant/50 dark:text-dark-on-surface-variant/50 mb-4 block">inventory_2</span>
@@ -183,7 +199,8 @@ export default function POS({ products }) {
                             {productosProcesados.map(product => {
                                 const qty = getProductQty(product.id);
                                 const precioUSD = Number(product.price_usd).toFixed(2);
-                                const precioBs = Number(product.price_bs).toFixed(2);
+                                // CÁLCULO DINÁMICO DEL PRECIO EN BS
+                                const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
 
                                 return (
                                     <div
@@ -246,7 +263,6 @@ export default function POS({ products }) {
                     )}
                 </main>
 
-                {/* Botón Flotante de Ver Pedido */}
                 {cart.length > 0 && (
                     <div className="fixed bottom-[80px] md:bottom-md left-0 w-full px-margin-mobile md:px-margin-desktop z-40 flex justify-center animate-fade-in">
                         <div className="w-full max-w-md">
@@ -261,7 +277,6 @@ export default function POS({ products }) {
                     </div>
                 )}
 
-                {/* Modal de Pago / Resumen */}
                 {isModalOpen && (
                     <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-colors">
                         <div className="bg-surface dark:bg-dark-surface w-full md:max-w-md rounded-t-2xl md:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border dark:border-dark-outline">
@@ -276,39 +291,44 @@ export default function POS({ products }) {
                                 </button>
                             </div>
 
-                            <div className="p-md flex flex-col gap-sm max-h-[50vh] overflow-y-auto">
-                                {cart.map(item => (
-                                    <div key={item.product.id} className="flex justify-between items-center border-b border-outline-variant/50 dark:border-dark-outline pb-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex items-center bg-surface-container-lowest dark:bg-dark-background rounded-lg border border-outline-variant dark:border-dark-outline overflow-hidden shadow-sm">
-                                                <button onClick={() => decreaseQuantity(item.product.id)} className="w-8 h-8 flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-surface hover:text-error transition-colors">
-                                                    <span className="material-symbols-outlined text-[18px]">remove</span>
-                                                </button>
-                                                <span className="w-6 text-center font-bold text-on-surface dark:text-white text-xs">{item.quantity}</span>
-                                                <button onClick={() => addToCart(item.product)} className="w-8 h-8 flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-surface hover:text-dark-primary transition-colors">
-                                                    <span className="material-symbols-outlined text-[18px]">add</span>
-                                                </button>
+                            <div className="p-md flex flex-col gap-sm max-h-[40vh] overflow-y-auto">
+                                {cart.map(item => {
+                                    // PRECIO REAL PARA EL TICKET BASADO EN TASA ACTUAL
+                                    const itemBs = (Number(item.product.price_usd) * tasaBCV).toFixed(2);
+
+                                    return (
+                                        <div key={item.product.id} className="flex justify-between items-center border-b border-outline-variant/50 dark:border-dark-outline pb-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center bg-surface-container-lowest dark:bg-dark-background rounded-lg border border-outline-variant dark:border-dark-outline overflow-hidden shadow-sm">
+                                                    <button onClick={() => decreaseQuantity(item.product.id)} className="w-8 h-8 flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-surface hover:text-error transition-colors">
+                                                        <span className="material-symbols-outlined text-[18px]">remove</span>
+                                                    </button>
+                                                    <span className="w-6 text-center font-bold text-on-surface dark:text-white text-xs">{item.quantity}</span>
+                                                    <button onClick={() => addToCart(item.product)} className="w-8 h-8 flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-surface hover:text-dark-primary transition-colors">
+                                                        <span className="material-symbols-outlined text-[18px]">add</span>
+                                                    </button>
+                                                </div>
+
+                                                <div>
+                                                    <p className="font-body-md text-on-surface dark:text-dark-on-surface font-bold leading-tight text-sm uppercase">{item.product.name}</p>
+                                                    <p className="font-body-sm text-on-surface-variant dark:text-dark-on-surface-variant mt-0.5 text-[10px] font-medium">
+                                                        ${Number(item.product.price_usd).toFixed(2)} <span className="opacity-50">({itemBs} Bs)</span>
+                                                    </p>
+                                                </div>
                                             </div>
 
-                                            <div>
-                                                <p className="font-body-md text-on-surface dark:text-dark-on-surface font-bold leading-tight text-sm uppercase">{item.product.name}</p>
-                                                <p className="font-body-sm text-on-surface-variant dark:text-dark-on-surface-variant mt-0.5 text-[10px] font-medium">
-                                                    ${Number(item.product.price_usd).toFixed(2)} <span className="opacity-50">({Number(item.product.price_bs).toFixed(2)} Bs)</span>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <p className="font-body-md text-on-surface dark:text-white font-black text-sm">
+                                                    ${(Number(item.product.price_usd) * item.quantity).toFixed(2)}
                                                 </p>
+                                                <button onClick={() => removeItem(item.product.id)} className="text-error/70 dark:text-error/80 hover:text-error text-[10px] font-black uppercase flex items-center gap-1 transition-colors">
+                                                    <span className="material-symbols-outlined text-[14px]">delete</span>
+                                                    Quitar
+                                                </button>
                                             </div>
                                         </div>
-
-                                        <div className="flex flex-col items-end gap-1">
-                                            <p className="font-body-md text-on-surface dark:text-white font-black text-sm">
-                                                ${(Number(item.product.price_usd) * item.quantity).toFixed(2)}
-                                            </p>
-                                            <button onClick={() => removeItem(item.product.id)} className="text-error/70 dark:text-error/80 hover:text-error text-[10px] font-black uppercase flex items-center gap-1 transition-colors">
-                                                <span className="material-symbols-outlined text-[14px]">delete</span>
-                                                Quitar
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
 
                             <div className="p-md bg-surface-container-lowest dark:bg-dark-background border-t border-outline-variant dark:border-dark-outline">
@@ -343,16 +363,61 @@ export default function POS({ products }) {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-between items-center mb-md pt-2 border-t border-outline-variant/50 dark:border-dark-outline">
-                                    <p className="font-headline-sm text-on-surface dark:text-white font-black text-lg uppercase tracking-tighter">Total</p>
-                                    <div className="text-right">
-                                        <p className="font-headline-md text-primary dark:text-dark-primary font-black leading-none text-2xl tracking-tighter">${totalUSD.toFixed(2)}</p>
-                                        <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant mt-1 font-black opacity-60">~ {totalBs.toFixed(2)} Bs</p>
+                                {/* MEJORA UX: INPUT DE MONTO PAGADO */}
+                                {paymentMethod === 'Efectivo' && (
+                                    <div className="mt-4 p-3 border border-outline-variant dark:border-dark-outline bg-surface-container-high dark:bg-dark-surface-container rounded-lg animate-fade-in">
+                                        <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">
+                                            Monto Cancelado por el cliente (Bs)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            placeholder={`Ej. ${Math.floor(totalBs)}`}
+                                            value={amountPaid}
+                                            onChange={(e) => setAmountPaid(e.target.value.replace(/[^0-9.]/g, ''))}
+                                            className="w-full bg-surface dark:bg-dark-background border border-outline-variant/50 dark:border-dark-outline rounded-md px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                                        />
+
+                                        {/* INDICADOR VISUAL DE PÉRDIDA SI NO PAGA COMPLETO */}
+                                        {calculatedLossBs > 0 && (
+                                            <p className="text-error font-bold text-[10px] mt-2 flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-[14px]">warning</span>
+                                                El sistema registrará una pérdida de {calculatedLossBs.toFixed(2)} Bs
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                {/* ------------------------------- */}
+
+                                <div className="border-t border-outline-variant/50 dark:border-dark-outline pt-3 mt-4">
+
+                                    {discountBs > 0 && (
+                                        <>
+                                            <div className="flex justify-between items-center text-on-surface-variant dark:text-dark-on-surface-variant mb-1">
+                                                <p className="text-xs font-bold uppercase tracking-widest">Subtotal</p>
+                                                <p className="text-sm font-bold">${subtotalUSD.toFixed(2)}</p>
+                                            </div>
+                                            <div className="flex justify-between items-center text-primary dark:text-dark-primary mb-2">
+                                                <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[14px]">local_offer</span>
+                                                    Promo Tetas ({promoPairs} pares)
+                                                </p>
+                                                <p className="text-sm font-black">-${discountUSD.toFixed(2)}</p>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <div className="flex justify-between items-end mt-2">
+                                        <p className="font-headline-sm text-on-surface dark:text-white font-black text-lg uppercase tracking-tighter">Total</p>
+                                        <div className="text-right">
+                                            <p className="font-headline-md text-primary dark:text-dark-primary font-black leading-none text-2xl tracking-tighter">${totalUSD.toFixed(2)}</p>
+                                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant mt-1 font-black opacity-60">~ {totalBs.toFixed(2)} Bs</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <button
                                     onClick={confirmSale}
-                                    className="w-full bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background py-sm rounded-lg font-label-md text-headline-sm font-black shadow-md hover:opacity-90 transition-all flex justify-center items-center gap-2 border dark:border-dark-primary/20"
+                                    className="mt-4 w-full bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background py-sm rounded-lg font-label-md text-headline-sm font-black shadow-md hover:opacity-90 transition-all flex justify-center items-center gap-2 border dark:border-dark-primary/20"
                                 >
                                     <span className="material-symbols-outlined">verified</span>
                                     CONFIRMAR VENTA
