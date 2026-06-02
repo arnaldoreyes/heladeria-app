@@ -10,19 +10,13 @@ export default function POS({ products }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [toast, setToast] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Efectivo');
-
-    // NUEVO: En lugar de pérdida, pedimos el monto que entregó el cliente
     const [amountPaid, setAmountPaid] = useState('');
 
-    const [selectedCategory, setSelectedCategory] = useState(() => {
-        return localStorage.getItem('ik_pos_category') || 'Todos';
-    });
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState(() => {
         return localStorage.getItem('ik_pos_sort') || 'name_asc';
     });
 
-    useEffect(() => localStorage.setItem('ik_pos_category', selectedCategory), [selectedCategory]);
     useEffect(() => localStorage.setItem('ik_pos_sort', sortBy), [sortBy]);
 
     const addToCart = (product) => {
@@ -67,35 +61,17 @@ export default function POS({ products }) {
     };
 
     // --- MATEMÁTICA PROTEGIDA (Precios dinámicos vs BCV) ---
-    const subtotalUSD = cart.reduce((sum, item) => sum + (Number(item.product.price_usd) * item.quantity), 0);
-    const subtotalBs = subtotalUSD * tasaBCV;
-
-    const tetasQty = cart
-        .filter(item => item.product.category_id == 1 || item.product.category?.name === 'Teta')
-        .reduce((sum, item) => sum + item.quantity, 0);
-
-    const promoPairs = Math.floor(tetasQty / 2);
-    // Descuento de $0.20 USD por cada par (Protege tu margen ante subidas del BCV)
-    const discountUSD = promoPairs * 0.20;
-    const discountBs = discountUSD * tasaBCV;
-
-    const totalUSD = subtotalUSD - discountUSD;
-    const totalBs = subtotalBs - discountBs;
+    const totalUSD = cart.reduce((sum, item) => sum + (Number(item.product.price_usd) * item.quantity), 0);
+    const totalBs = totalUSD * tasaBCV;
 
     // --- CÁLCULO DE PÉRDIDA AUTOMÁTICO ---
     const parsedAmountPaid = Number(amountPaid);
-    // Si metió un monto y es menor al total a cobrar, calculamos la pérdida exacta.
     const calculatedLossBs = (parsedAmountPaid > 0 && parsedAmountPaid < totalBs)
         ? totalBs - parsedAmountPaid
         : 0;
     // --------------------------------------------------------
 
-    const categoriasBase = ['Todos', 'Helado', 'Teta'];
     let productosProcesados = [...products];
-
-    if (selectedCategory !== 'Todos') {
-        productosProcesados = productosProcesados.filter(p => p.category?.name === selectedCategory);
-    }
 
     if (searchQuery.trim() !== '') {
         const lowerQuery = searchQuery.toLowerCase();
@@ -116,11 +92,11 @@ export default function POS({ products }) {
             cart: cart,
             tasa_bcv: tasaBCV,
             payment_method: paymentMethod,
-            subtotal_bs: subtotalBs,
-            discount_bs: discountBs,
+            subtotal_bs: totalBs, // Sin descuentos, subtotal = total
+            discount_bs: 0,       // Descuentos removidos
             total_bs: totalBs,
             total_usd: totalUSD,
-            change_loss_bs: calculatedLossBs // Enviamos la pérdida procesada por el sistema
+            change_loss_bs: calculatedLossBs
         }, {
             onSuccess: () => {
                 setCart([]);
@@ -140,22 +116,7 @@ export default function POS({ products }) {
                 <Head title="Punto de Venta" />
 
                 <main className="w-full px-margin-mobile py-md max-w-7xl mx-auto pb-40">
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 w-full">
-                        <div className="flex gap-2 overflow-x-auto hide-scrollbar w-full lg:w-auto">
-                            {categoriasBase.map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setSelectedCategory(cat)}
-                                    className={`${selectedCategory === cat
-                                        ? 'bg-primary text-on-primary shadow-sm dark:bg-dark-primary dark:text-dark-background'
-                                        : 'bg-surface dark:bg-dark-surface border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'
-                                        } px-5 h-10 flex items-center justify-center rounded-full font-label-md text-xs transition-colors font-bold uppercase tracking-wider whitespace-nowrap`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
-                        </div>
-
+                    <div className="flex flex-col lg:flex-row justify-end items-start lg:items-center gap-4 mb-6 w-full">
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
                             <div className="relative w-full sm:w-64 lg:w-72 h-10">
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-dark-on-surface-variant text-[18px]">search</span>
@@ -192,14 +153,13 @@ export default function POS({ products }) {
                         <div className="text-center p-12 mt-8 border border-dashed border-outline-variant dark:border-dark-outline rounded-2xl bg-surface-container-lowest dark:bg-dark-background/40">
                             <span className="material-symbols-outlined text-[48px] text-on-surface-variant/50 dark:text-dark-on-surface-variant/50 mb-4 block">inventory_2</span>
                             <p className="text-on-surface-variant dark:text-dark-on-surface-variant font-bold text-lg">No se encontraron productos.</p>
-                            <p className="text-sm opacity-70 mt-1">Prueba buscando con otro nombre o cambiando la categoría.</p>
+                            <p className="text-sm opacity-70 mt-1">Prueba buscando con otro nombre.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-sm">
                             {productosProcesados.map(product => {
                                 const qty = getProductQty(product.id);
                                 const precioUSD = Number(product.price_usd).toFixed(2);
-                                // FIX: Cálculo dinámico del precio en Bolívares usando la tasa del header
                                 const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
 
                                 return (
@@ -212,10 +172,7 @@ export default function POS({ products }) {
                                             }`}
                                     >
                                         <div className="w-full aspect-square rounded-lg bg-surface-container-highest dark:bg-dark-background mb-xs overflow-hidden relative transition-colors border dark:border-dark-outline/50">
-                                            <div className={`w-full h-full flex items-center justify-center ${product.category?.name === 'Teta'
-                                                ? 'bg-pink-100 dark:bg-pink-900/20 text-pink-400 dark:text-pink-500'
-                                                : 'bg-blue-100 dark:bg-blue-900/20 text-blue-400 dark:text-blue-500'
-                                                }`}>
+                                            <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20 text-blue-400 dark:text-blue-500">
                                                 <span className="material-symbols-outlined opacity-80 text-[40px]">icecream</span>
                                             </div>
 
@@ -293,7 +250,6 @@ export default function POS({ products }) {
 
                             <div className="p-md flex flex-col gap-sm max-h-[40vh] overflow-y-auto">
                                 {cart.map(item => {
-                                    // PRECIO DINÁMICO EN EL TICKET
                                     const itemBs = (Number(item.product.price_usd) * tasaBCV).toFixed(2);
 
                                     return (
@@ -363,7 +319,6 @@ export default function POS({ products }) {
                                     </div>
                                 </div>
 
-                                {/* MEJORA UX: INPUT DE MONTO PAGADO */}
                                 {paymentMethod === 'Efectivo' && (
                                     <div className="mt-4 p-3 border border-outline-variant dark:border-dark-outline bg-surface-container-high dark:bg-dark-surface-container rounded-lg animate-fade-in">
                                         <label className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">
@@ -378,7 +333,6 @@ export default function POS({ products }) {
                                             className="w-full bg-surface dark:bg-dark-background border border-outline-variant/50 dark:border-dark-outline rounded-md px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
                                         />
 
-                                        {/* INDICADOR VISUAL DE PÉRDIDA SI NO PAGA COMPLETO */}
                                         {calculatedLossBs > 0 && (
                                             <p className="text-error font-bold text-[10px] mt-2 flex items-center gap-1">
                                                 <span className="material-symbols-outlined text-[14px]">warning</span>
@@ -387,26 +341,8 @@ export default function POS({ products }) {
                                         )}
                                     </div>
                                 )}
-                                {/* ------------------------------- */}
 
                                 <div className="border-t border-outline-variant/50 dark:border-dark-outline pt-3 mt-4">
-
-                                    {discountBs > 0 && (
-                                        <>
-                                            <div className="flex justify-between items-center text-on-surface-variant dark:text-dark-on-surface-variant mb-1">
-                                                <p className="text-xs font-bold uppercase tracking-widest">Subtotal</p>
-                                                <p className="text-sm font-bold">${subtotalUSD.toFixed(2)}</p>
-                                            </div>
-                                            <div className="flex justify-between items-center text-primary dark:text-dark-primary mb-2">
-                                                <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-1">
-                                                    <span className="material-symbols-outlined text-[14px]">local_offer</span>
-                                                    Promo Tetas ({promoPairs} pares)
-                                                </p>
-                                                <p className="text-sm font-black">-${discountUSD.toFixed(2)}</p>
-                                            </div>
-                                        </>
-                                    )}
-
                                     <div className="flex justify-between items-end mt-2">
                                         <p className="font-headline-sm text-on-surface dark:text-white font-black text-lg uppercase tracking-tighter">Total</p>
                                         <div className="text-right">

@@ -24,3 +24,5 @@ Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->
 Route::resource('categories', CategoryController::class);
 Route::resource('products', ProductController::class);
 Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
+
+Route::post('/products/restock', [App\Http\Controllers\ProductController::class, 'restock'])->name('products.restock');

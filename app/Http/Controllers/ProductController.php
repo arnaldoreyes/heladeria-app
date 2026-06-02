@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Restock;
+use App\Models\RestockItem;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Requests\BulkUpdateProductRequest;
 use App\Http\Requests\BulkDestroyProductRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ProductController extends Controller
 {
@@ -16,8 +20,24 @@ class ProductController extends Controller
     {
         $products = Product::with('category')->latest()->get();
         
-        return Inertia::render('Products/Index', [
-            'products' => $products
+        $allRestocks = Restock::with('items.product')->latest()->get();
+        $restockHistory = $allRestocks->groupBy(function($val) {
+            return Carbon::parse($val->created_at)->format('Y-m');
+        })->map(function($monthRestocks, $key) {
+            $date = Carbon::createFromFormat('Y-m', $key)->locale('es');
+            return [
+                'id' => $key,
+                'month_name' => ucfirst($date->translatedFormat('F Y')),
+                'restocks_count' => $monthRestocks->count(),
+                'total_usd' => (float) $monthRestocks->sum('total_usd'),
+                'total_bs' => (float) $monthRestocks->sum('total_bs'),
+                'restocks' => $monthRestocks
+            ];
+        })->sortByDesc('id')->values();
+
+        return inertia('Products/Index', [
+            'products' => $products,
+            'restockHistory' => $restockHistory // Pasamos la nueva data al Frontend
         ]);
     }
 
@@ -85,6 +105,39 @@ class ProductController extends Controller
         if (!empty($data)) {
             Product::whereIn('id', $request->validated('ids'))->update($data);
         }
+
+        return redirect()->back();
+    }
+
+    public function restock(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'total_usd' => 'required|numeric|min:0',
+            'total_bs' => 'required|numeric|min:0',
+            'items' => 'required|array|min:1',
+        ]);
+
+        DB::transaction(function () use ($request) {
+            // 1. Guardar la factura global
+            $restock = Restock::create([
+                'total_usd' => $request->total_usd,
+                'total_bs' => $request->total_bs,
+            ]);
+
+            // 2. Guardar el detalle y aumentar el stock
+            foreach ($request->items as $item) {
+                RestockItem::create([
+                    'restock_id' => $restock->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                ]);
+
+                $product = Product::find($item['product_id']);
+                if ($product) {
+                    $product->increment('stock', $item['quantity']);
+                }
+            }
+        });
 
         return redirect()->back();
     }

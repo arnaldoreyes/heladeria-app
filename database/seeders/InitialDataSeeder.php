@@ -12,7 +12,7 @@ class InitialDataSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Obtener la tasa dinámica con la misma lógica de tu Middleware
+        // 1. Obtener la tasa dinámica oficial
         $tasaDinamica = 1; // Fail-safe absoluto por defecto
         
         try {
@@ -25,7 +25,6 @@ class InitialDataSeeder extends Seeder
                 if ($price > 0) {
                     $tasaDinamica = $price;
                     
-                    // Actualizamos el Setting para mantener la BD fresca, igual que en tu Middleware
                     Setting::updateOrCreate(
                         ['key' => 'last_bcv_rate'],
                         ['value' => $tasaDinamica]
@@ -36,30 +35,17 @@ class InitialDataSeeder extends Seeder
                 $tasaDinamica = $lastSaved && $lastSaved->value > 0 ? (float) $lastSaved->value : 1;
             }
         } catch (\Exception $e) {
-            // Si falla la conexión, usamos la base de datos
             $lastSaved = Setting::where('key', 'last_bcv_rate')->first();
             $tasaDinamica = $lastSaved && $lastSaved->value > 0 ? (float) $lastSaved->value : 1;
         }
 
-        // 2. Crear las Categorías principales
-        $categoriaTeta = Category::create(['name' => 'Teta', 'description' => 'Helados en bolsita']);
-        $categoriaHelado = Category::create(['name' => 'Helado', 'description' => 'Helados tradicionales']);
+        // 2. Crear únicamente la categoría de Helados (Nacerá con ID 1 de forma natural)
+        $categoriaHelado = Category::create([
+            'name' => 'Helado',
+            'description' => 'Helados tradicionales'
+        ]);
 
-        // 3. Lista de productos tipo "Teta"
-        $saboresTeta = ['Choco Fresa', 'Chocolate', 'Mantecado', 'Ron con pasas', 'Uva', 'Coco'];
-
-        // Insertar cada producto "Teta" en la base de datos
-        foreach ($saboresTeta as $sabor) {
-            Product::create([
-                'category_id' => $categoriaTeta->id,
-                'name' => $sabor,
-                'price_usd' => 0.60, // Precio unificado en USD
-                'price_bs' => 0.60 * $tasaDinamica, // Sinergia calculada
-                'stock' => 10,     // Stock inicial de prueba
-            ]);
-        }
-
-        // 4. Lista de productos tipo "Helado" con sus precios específicos
+        // 3. Lista de productos tipo "Helado" de la marca Cali
         $heladosTradicionales = [
             'Max Polet' => 2.00,
             'Polet Crunch White' => 2.00,
@@ -86,14 +72,14 @@ class InitialDataSeeder extends Seeder
             'Casero Guanabana' => 0.60,
         ];
 
-        // Insertar cada producto "Helado" en la base de datos
+        // Insertar cada producto en la base de datos
         foreach ($heladosTradicionales as $nombre => $precioUsd) {
             Product::create([
-                'category_id' => $categoriaHelado->id,
+                'category_id' => $categoriaHelado->id, // Dinámicamente usará el ID 1 generado
                 'name' => $nombre,
                 'price_usd' => $precioUsd,
-                'price_bs' => $precioUsd * $tasaDinamica, // Sinergia calculada
-                'stock' => 10, // Stock inicial de prueba
+                'price_bs' => $precioUsd * $tasaDinamica, 
+                'stock' => 10,
             ]);
         }
     }
