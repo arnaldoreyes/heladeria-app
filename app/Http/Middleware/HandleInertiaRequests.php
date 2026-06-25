@@ -6,66 +6,58 @@ use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Illuminate\Support\Facades\Cache; 
 use Illuminate\Support\Facades\Http;
+use App\Models\Setting;
+use App\Services\BcvScraperService;
 
 class HandleInertiaRequests extends Middleware
 {
-    /**
-     * The root template that is loaded on the first page visit.
-     *
-     * @var string
-     */
     protected $rootView = 'app';
 
-    /**
-     * Determine the current asset version.
-     */
     public function version(Request $request): ?string
     {
         return parent::version($request);
     }
 
-    /**
-     * Define the props that are shared by default.
-     *
-     * @return array<string, mixed>
-     */
     public function share(Request $request): array
     {
-        $tasaBcv = Cache::remember('tasa_bcv', now()->addHours(2), function () {
-            try {
-                // 1. Usamos la API activa y oficial de DolarApi
-                $response = Http::withoutVerifying()
-                                ->timeout(5)
-                                ->get('https://ve.dolarapi.com/v1/dolares/oficial');
+        $settings = Setting::whereIn('key', ['bcv_mode', 'bcv_manual_rate', 'last_bcv_rate', 'profit_percentage', 'business_percentage'])
+                           ->pluck('value', 'key')->toArray();
+
+        $mode = $settings['bcv_mode'] ?? 'auto';
+        $manualRate = (float) ($settings['bcv_manual_rate'] ?? 0);
+        $profitPercentage = (float) ($settings['profit_percentage'] ?? 40);
+        $businessPercentage = (float) ($settings['business_percentage'] ?? 60);
+
+        if ($mode === 'manual' && $manualRate > 0) {
+            $tasaFinal = $manualRate;
+        } else {
+            // Lógica Auto con TU PROPIO SCRAPER (Cacheado por 2 horas)
+            $tasaFinal = Cache::remember('tasa_bcv_global', now()->addHours(2), function () use ($settings) {
+                // Instanciamos nuestro servicio
+                $scraper = new BcvScraperService();
+                $price = $scraper->getUsdRate();
                 
-                if ($response->successful()) {
-                    // DolarApi devuelve el precio en la llave 'promedio'
-                    $price = (float) $response->json('promedio');
-                    
-                    if ($price > 0) {
-                        // Guardamos el registro exitoso en la BD
-                        \App\Models\Setting::updateOrCreate(
-                            ['key' => 'last_bcv_rate'],
-                            ['value' => $price]
-                        );
-                        
-                        return $price;
-                    }
+                if ($price !== null && $price > 0) {
+                    Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $price]);
+                    return $price;
                 }
-            } catch (\Exception $e) {
-                // Ignorar error de red y pasar directamente a la Base de Datos
-            }
-            
-            // 2. SI FALLA LA CONEXIÓN: La única fuente de la verdad es la Base de Datos.
-            $lastSaved = \App\Models\Setting::where('key', 'last_bcv_rate')->first();
-            
-            // 3. Cero valores quemados. (Retornamos 1 como fail-safe absoluto para evitar división por cero en React)
-            return $lastSaved && $lastSaved->value > 0 ? (float) $lastSaved->value : 1; 
-        });
+                
+                // Si falla el scraping, devuelve la última tasa guardada
+                return (float) ($settings['last_bcv_rate'] ?? 1); 
+            });
+        }
 
         return [
             ...parent::share($request),
-            'tasa_bcv' => $tasaBcv,
+            // Variables Inyectadas Globalmente (Accedibles en cualquier .jsx via usePage().props)
+            'tasa_bcv' => $tasaFinal,
+            'bcv_mode' => $mode,
+            'profit_percentage' => $profitPercentage,
+            'business_percentage' => $businessPercentage,
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
         ];
     }
 }

@@ -84,6 +84,32 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  cron:
+    build:
+      context: .
+      dockerfile: ./docker/app/Dockerfile
+    container_name: ice_king_cron
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    # Sobrescribimos el comando para que no corra la web, sino un reloj infinito
+    command: sh -c "while true; do php artisan schedule:run --no-interaction & sleep 60; done"
+    networks:
+      - ice_king_net
+    depends_on:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'     # El cron consume casi nada, solo se despierta 1 vez por minuto
+          memory: 128M     # Consumo mínimo de RAM
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 networks:
   ice_king_net:
     driver: bridge

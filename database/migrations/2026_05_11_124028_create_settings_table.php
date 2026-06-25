@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -14,12 +15,17 @@ return new class extends Migration
         Schema::create('settings', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
-            $table->decimal('value', 15, 4);
+            $table->string('value')->nullable(); 
             $table->timestamps();
         });
         
-        // Insertamos un valor inicial para que la app no nazca vacía
-        DB::table('settings')->insert(['key' => 'last_bcv_rate', 'value' => 50.46]);
+        DB::table('settings')->insert([
+            ['key' => 'last_bcv_rate', 'value' => '1'], 
+            ['key' => 'bcv_mode', 'value' => 'auto'], 
+            ['key' => 'bcv_manual_rate', 'value' => '0'],
+            ['key' => 'profit_percentage', 'value' => '40'],
+            ['key' => 'business_percentage', 'value' => '60'],
+        ]);
     }
 
     /**

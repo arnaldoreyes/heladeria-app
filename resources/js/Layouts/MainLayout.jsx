@@ -38,6 +38,7 @@ export default function MainLayout({ children }) {
         { name: 'Resumen', href: route('dashboard'), active: url.startsWith('/dashboard'), icon: 'space_dashboard' },
         { name: 'Venta', href: route('pos.index'), active: url.startsWith('/pos') || url === '/', icon: 'point_of_sale' },
         { name: 'Inventario', href: route('products.index'), active: url.startsWith('/products'), icon: 'inventory_2' },
+        { name: 'Finanzas', href: route('finances.index'), active: url.startsWith('/finances'), icon: 'account_balance' }, // Nueva pestaña
     ];
 
     return (
@@ -76,19 +77,36 @@ export default function MainLayout({ children }) {
 
                         {/* Controles a la derecha */}
                         <div className="flex items-center gap-3 shrink-0">
-                            <div className="bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-dark-on-surface font-bold text-sm px-4 py-1.5 rounded-full border border-outline-variant/50 dark:border-dark-outline shadow-sm transition-colors">
-                                BCV: {tasa_bcv.toFixed(2)} Bs
+
+                            {/* TASA DINÁMICA CON INDICADOR DE MODO */}
+                            <div className="flex flex-col items-end">
+                                <div className="bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-dark-on-surface font-bold text-sm px-4 py-1.5 rounded-full border border-outline-variant/50 dark:border-dark-outline shadow-sm transition-colors flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${usePage().props.bcv_mode === 'manual' ? 'bg-error' : 'bg-primary dark:bg-dark-primary animate-pulse'}`}></span>
+                                    {tasa_bcv.toFixed(2)} Bs
+                                </div>
                             </div>
 
+                            {/* BOTÓN MODO OSCURO */}
                             <button
                                 onClick={toggleTheme}
                                 className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-background hover:text-primary dark:hover:text-dark-primary transition-all active:scale-95 border border-transparent dark:border-dark-outline"
-                                title={isDarkMode ? "Cambiar a Modo Claro" : "Cambiar a Modo Oscuro"}
+                                title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
                             >
-                                <span className="material-symbols-outlined text-[22px]">
-                                    {isDarkMode ? 'light_mode' : 'dark_mode'}
-                                </span>
+                                <span className="material-symbols-outlined text-[22px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                             </button>
+
+                            {/* BOTÓN CONFIGURACIÓN */}
+                            <Link
+                                href={route('settings.index')}
+                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-all active:scale-95 border ${url.startsWith('/settings')
+                                    ? 'bg-primary/10 text-primary border-primary/30 dark:bg-dark-primary/10 dark:text-dark-primary'
+                                    : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-background border-transparent dark:border-dark-outline'
+                                    }`}
+                                title="Configuración General"
+                            >
+                                <span className="material-symbols-outlined text-[22px]" style={url.startsWith('/settings') ? { fontVariationSettings: "'FILL' 1" } : {}}>settings</span>
+                            </Link>
+
                         </div>
                     </div>
                 </div>

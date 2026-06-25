@@ -9,7 +9,6 @@ class Setting extends Model
 {
     use HasFactory;
 
-    // Le decimos a Laravel qué columnas se pueden llenar de forma masiva
     protected $fillable = [
         'key',
         'value',

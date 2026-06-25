@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
 export default function Dashboard({
-    currentPeriod, totalVentasBs, totalVentasUsd, cantidadVentas, ventasRecientes,
-    totalPerdidaBs = 0, totalPerdidaUsd = 0, metodosPago = [], topProductos = [],
-    monthlyHistory = []
+    totalVentasBs, totalVentasUsd, cantidadVentas, ventasRecientes,
+    totalPerdidaBs = 0, totalPerdidaUsd = 0, topProductos = [],
+    monthlyHistory = [], totalHoyUsd, totalHoyBs // Agregamos los totales de hoy
 }) {
+    // CAPTURAMOS LA CONFIGURACIÓN GLOBAL DESDE INERTIA
+    const { profit_percentage, business_percentage } = usePage().props;
+    const profitRatio = profit_percentage / 100;
+    const businessRatio = business_percentage / 100;
+
     const [selectedSale, setSelectedSale] = useState(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isTopGlobalOpen, setIsTopGlobalOpen] = useState(false);
@@ -27,24 +32,27 @@ export default function Dashboard({
 
     const getCurrentFormattedDate = () => {
         const date = new Date();
-        const formatted = new Intl.DateTimeFormat('es-VE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+        const formatted = new Intl.DateTimeFormat('es-VE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(date);
         return formatted.charAt(0).toUpperCase() + formatted.slice(1);
     };
 
-    // --- MATEMÁTICA DEL NEGOCIO (40/60) ACTUAL ---
-    const fondoNegocioUsd = totalVentasUsd * 0.60;
-    const fondoNegocioBs = totalVentasBs * 0.60;
+    // Helper para verificar si el ticket fue creado el día de hoy
+    const isSaleFromToday = (dateString) => {
+        if (!dateString) return false;
+        const saleDate = new Date(dateString);
+        const today = new Date();
+        return saleDate.toDateString() === today.toDateString();
+    };
 
-    const gananciaTeoricaUsd = totalVentasUsd * 0.40;
-    const gananciaTeoricaBs = totalVentasBs * 0.40;
+    // --- MATEMÁTICA DEL NEGOCIO (DINÁMICA BASADA EN CONFIGURACIÓN) ---
+    const fondoNegocioUsd = totalVentasUsd * businessRatio;
+    const fondoNegocioBs = totalVentasBs * businessRatio;
+
+    const gananciaTeoricaUsd = totalVentasUsd * profitRatio;
+    const gananciaTeoricaBs = totalVentasBs * profitRatio;
 
     const gananciaRealUsd = Math.max(0, gananciaTeoricaUsd - totalPerdidaUsd);
     const gananciaRealBs = Math.max(0, gananciaTeoricaBs - totalPerdidaBs);
-
-    // --- NAVEGACIÓN POR PERÍODOS ---
-    const handlePeriodChange = (period) => {
-        router.get(route('dashboard'), { period }, { preserveState: true, preserveScroll: true });
-    };
 
     const paymentIcons = {
         'Efectivo': 'payments',
@@ -60,49 +68,32 @@ export default function Dashboard({
 
             <main className="pt-8 md:pt-[40px] px-margin-mobile md:px-margin-desktop max-w-6xl mx-auto flex flex-col gap-lg h-full pb-20 transition-colors">
 
-                {/* ENCABEZADO CON FECHA Y SELECTORES UNIFICADOS */}
+                {/* ENCABEZADO: FECHA Y BOTÓN HISTÓRICO (Selectores eliminados) */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
                     <div className="w-full md:w-auto">
                         <p className="text-sm md:text-base text-primary dark:text-dark-primary font-black uppercase tracking-widest flex items-center gap-1.5">
                             <span className="material-symbols-outlined text-[18px]">calendar_today</span>
                             {getCurrentFormattedDate()}
                         </p>
+                        <p className="text-xs font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-0.5">
+                            Mostrando el mes en curso
+                        </p>
                     </div>
 
                     <div className="flex flex-row items-center justify-between md:justify-end gap-2 w-full md:w-auto">
-                        {/* BOTÓN HISTÓRICO - Misma altura que el contenedor de períodos */}
                         <button
                             onClick={() => setIsMonthlySidebarOpen(true)}
                             className="flex items-center gap-1.5 px-3 h-[34px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface"
                         >
                             <span className="material-symbols-outlined text-[16px]">folder_open</span>
-                            Histórico
+                            Histórico Mensual
                         </button>
-
-                        <div className="flex bg-surface-container-low dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-lg p-1 shadow-sm shrink-0 h-[34px] items-center">
-                            {[
-                                { id: 'today', label: 'Hoy' },
-                                { id: 'week', label: 'Semana' },
-                                { id: 'month', label: 'Mes' }
-                            ].map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => handlePeriodChange(p.id)}
-                                    className={`px-3 sm:px-4 py-1 rounded-md text-xs font-black uppercase tracking-wider transition-all h-full flex items-center ${currentPeriod === p.id
-                                            ? 'bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background shadow-sm'
-                                            : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'
-                                        }`}
-                                >
-                                    {p.label}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </div>
 
                 <div className="flex flex-col gap-4 w-full">
 
-                    {/* TARJETA PRINCIPAL - DISTRIBUCIÓN DEL DINERO (40/60) */}
+                    {/* TARJETA PRINCIPAL - DISTRIBUCIÓN DEL DINERO (MES EN CURSO) */}
                     <div className="bg-surface-container-lowest dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl shadow-sm relative overflow-hidden flex flex-col w-full transition-all">
 
                         <div className="bg-surface-container-low dark:bg-dark-surface-container border-b border-outline-variant dark:border-dark-outline p-5 flex flex-row justify-between items-start gap-4">
@@ -132,7 +123,7 @@ export default function Dashboard({
                                 <div className="flex flex-row justify-between items-start gap-2 mb-4 relative z-10">
                                     <h3 className="font-label-lg text-primary dark:text-dark-primary font-black uppercase tracking-widest text-xs flex items-center gap-2">
                                         <span className="material-symbols-outlined text-[18px]">inventory</span>
-                                        Fondo de Negocio (60%)
+                                        Fondo de Negocio ({business_percentage}%)
                                     </h3>
                                 </div>
                                 <div className="flex flex-col mt-auto relative z-10">
@@ -152,7 +143,7 @@ export default function Dashboard({
                                 <div className="flex flex-row justify-between items-start gap-2 mb-4 relative z-10">
                                     <h3 className="font-label-lg text-primary dark:text-dark-primary font-black uppercase tracking-widest text-xs flex items-center gap-2">
                                         <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                                        Tu Ganancia (40%)
+                                        Tu Ganancia ({profit_percentage}%)
                                     </h3>
                                     {totalPerdidaUsd > 0 && (
                                         <div className="shrink-0 bg-error/10 text-error px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 border border-error/20">
@@ -173,32 +164,12 @@ export default function Dashboard({
 
                         </div>
                     </div>
-
-                    {/* MÉTODOS DE PAGO */}
-                    {metodosPago.length > 0 && (
-                        <div className="bg-surface-container-lowest dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl p-5 shadow-sm">
-                            <h3 className="font-label-md text-on-surface-variant dark:text-dark-on-surface-variant font-bold uppercase tracking-widest text-[10px] mb-4">Ingresos por Método de Pago en el Período</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                {metodosPago.map((metodo) => (
-                                    <div key={metodo.payment_method} className="bg-surface-container-low dark:bg-dark-surface-container rounded-lg p-3 border border-outline-variant/50 dark:border-dark-outline flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-dark-primary/10 text-primary dark:text-dark-primary flex items-center justify-center border border-primary/20 dark:border-dark-primary/20 shrink-0">
-                                            <span className="material-symbols-outlined text-[18px]">{paymentIcons[metodo.payment_method] || 'payments'}</span>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant dark:text-dark-on-surface-variant mb-0.5">{metodo.payment_method}</p>
-                                            <p className="font-bold text-sm text-on-surface dark:text-white leading-none">${formatMoney(metodo.total_usd)}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* COLUMNAS INFERIORES */}
                 <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-                    {/* TOP 3 PRODUCTOS */}
+                    {/* TOP 3 PRODUCTOS (MES EN CURSO) */}
                     <div className="flex flex-col">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="font-headline-sm font-bold text-on-surface dark:text-dark-on-surface tracking-tight flex items-center gap-2">
@@ -228,20 +199,21 @@ export default function Dashboard({
                                 ))
                             ) : (
                                 <div className="text-center p-8 border border-dashed border-outline-variant dark:border-dark-outline rounded-xl bg-surface-container-lowest dark:bg-dark-surface/30">
-                                    <p className="text-on-surface-variant dark:text-dark-on-surface-variant font-medium text-sm">Sin datos para este período.</p>
+                                    <p className="text-on-surface-variant dark:text-dark-on-surface-variant font-medium text-sm">Sin datos para este mes.</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* VENTAS RECIENTES */}
+                    {/* VENTAS RECIENTES (LAS DE HOY CON INDICADOR) */}
                     <div className="flex flex-col">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="font-headline-sm font-bold text-on-surface dark:text-dark-on-surface tracking-tight">
-                                Ventas Recientes
+                            <h2 className="font-headline-sm font-bold text-on-surface dark:text-dark-on-surface tracking-tight flex items-center gap-2">
+                                Ventas de Hoy
+                                <span className="bg-primary/10 dark:bg-dark-primary/10 text-primary dark:text-dark-primary px-2 py-0.5 rounded text-sm">${formatMoney(totalHoyUsd)}</span>
                             </h2>
                             <button onClick={() => setIsHistoryOpen(true)} className="flex items-center gap-1.5 text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest hover:opacity-80 transition-all">
-                                <span className="material-symbols-outlined text-[16px]">history</span> Historial
+                                <span className="material-symbols-outlined text-[16px]">history</span> Historial (Hoy)
                             </button>
                         </div>
 
@@ -274,7 +246,7 @@ export default function Dashboard({
                                 ))
                             ) : (
                                 <div className="text-center p-8 border border-dashed border-outline-variant dark:border-dark-outline rounded-xl bg-surface-container-lowest dark:bg-dark-surface/30">
-                                    <p className="text-on-surface-variant dark:text-dark-on-surface-variant font-medium text-sm">No hay registros en este período.</p>
+                                    <p className="text-on-surface-variant dark:text-dark-on-surface-variant font-medium text-sm">Aún no hay ventas el día de hoy.</p>
                                 </div>
                             )}
                         </div>
@@ -289,7 +261,7 @@ export default function Dashboard({
                     <div className="p-6 border-b border-outline-variant dark:border-dark-outline flex justify-between items-center bg-surface-container-low dark:bg-dark-background/50">
                         <div>
                             <h3 className="font-headline-sm font-black text-on-surface dark:text-white uppercase tracking-tighter text-lg">Top Global</h3>
-                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant font-bold uppercase tracking-widest">Del período seleccionado</p>
+                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant font-bold uppercase tracking-widest">Del mes en curso</p>
                         </div>
                         <button onClick={() => setIsTopGlobalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-error/10 text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-all">
                             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -358,12 +330,11 @@ export default function Dashboard({
                 </div>
             </div>
 
-            {/* MODAL DEL HISTÓRICO MENSUAL ESPECÍFICO (40/60) */}
+            {/* MODAL DEL HISTÓRICO MENSUAL ESPECÍFICO */}
             {selectedMonth && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all">
                     <div className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline">
 
-                        {/* Cabecera Modal Mensual */}
                         <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
                             <div className="flex justify-between items-center">
                                 <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg uppercase">{selectedMonth.month_name}</h2>
@@ -384,7 +355,6 @@ export default function Dashboard({
                             </div>
                         </div>
 
-                        {/* Desglose 40/60 Mensual */}
                         <div className="p-6 flex flex-col gap-4">
                             <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                 <div>
@@ -399,24 +369,24 @@ export default function Dashboard({
                             <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                 <div>
                                     <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[12px]">inventory</span> Fondo (60%)
+                                        <span className="material-symbols-outlined text-[12px]">inventory</span> Fondo ({business_percentage}%)
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * 0.6)}</p>
-                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * 0.6)} Bs</p>
+                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * businessRatio)}</p>
+                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * businessRatio)} Bs</p>
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                 <div>
                                     <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Tu Ganancia (40%)
+                                        <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Tu Ganancia ({profit_percentage}%)
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * 0.4)}</p>
-                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * 0.4)} Bs</p>
+                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * profitRatio)}</p>
+                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * profitRatio)} Bs</p>
                                 </div>
                             </div>
 
@@ -435,23 +405,22 @@ export default function Dashboard({
                             )}
                         </div>
 
-                        {/* Neto Real Mensual */}
                         <div className="bg-primary/5 dark:bg-[#111810] p-6 border-t border-outline-variant/50 dark:border-dark-outline mt-auto">
                             <div className="flex justify-between items-end mb-1">
                                 <span className="text-xs font-black text-primary dark:text-dark-primary uppercase tracking-widest">Ganancia Neta Final:</span>
                                 <span className="font-display-lg font-black text-primary dark:text-dark-primary text-2xl tracking-tighter">
-                                    ${formatMoney(Math.max(0, (selectedMonth.total_usd * 0.4) - selectedMonth.total_loss_usd))}
+                                    ${formatMoney(Math.max(0, (selectedMonth.total_usd * profitRatio) - selectedMonth.total_loss_usd))}
                                 </span>
                             </div>
                             <div className="text-right text-[11px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">
-                                ~ {formatMoney(Math.max(0, (selectedMonth.total_bs * 0.4) - selectedMonth.total_loss_bs))} BS
+                                ~ {formatMoney(Math.max(0, (selectedMonth.total_bs * profitRatio) - selectedMonth.total_loss_bs))} BS
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* MODAL DEL TICKET (Operativa Diaria) */}
+            {/* MODAL DEL TICKET ESPECÍFICO CON DESGLOSE DE GANANCIAS */}
             {selectedSale && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all">
                     <div className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline">
@@ -508,6 +477,14 @@ export default function Dashboard({
                         </div>
 
                         <div className="bg-surface-container-lowest dark:bg-dark-background p-6 border-t border-outline-variant/50 dark:border-dark-outline mt-auto">
+
+                            {/* Información de Tasa Conservada */}
+                            <div className="flex justify-between items-center mb-4 border-b border-outline-variant/30 dark:border-dark-outline/30 pb-2">
+                                <span className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Tasa del Ticket:</span>
+                                <span className="font-bold text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant">{selectedSale.tasa_bcv} Bs</span>
+                            </div>
+
+                            {/* Fugas si existen */}
                             {Number(selectedSale.change_loss_bs) > 0 && (
                                 <div className="flex justify-between items-center text-error mb-4">
                                     <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
@@ -516,26 +493,56 @@ export default function Dashboard({
                                     <span className="font-black text-sm">{formatMoney(selectedSale.change_loss_bs)} Bs</span>
                                 </div>
                             )}
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Monto Pagado:</span>
-                                <span className="font-display-lg font-black text-primary dark:text-dark-primary text-2xl tracking-tighter">${formatMoney(selectedSale.total_usd)}</span>
+
+                            {/* Distribución del Ticket Específico */}
+                            <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
+                                <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Negocio ({business_percentage}%)</p>
+                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.total_usd * businessRatio)}</p>
+                                </div>
+                                <div className="bg-primary/10 dark:bg-dark-primary/10 p-2 rounded border border-primary/20 dark:border-dark-primary/20">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary dark:text-dark-primary mb-1">Tu Ganancia ({profit_percentage}%)</p>
+                                    <p className="font-black text-xs text-primary dark:text-dark-primary">
+                                        ${formatMoney(Math.max(0, (selectedSale.total_usd * profitRatio) - (selectedSale.change_loss_bs / (selectedSale.tasa_bcv || 1))))}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="text-right text-[11px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">
+
+                            <div className="flex justify-between items-center mb-1 border-t border-outline-variant/30 dark:border-dark-outline/30 pt-3">
+                                <span className="text-xs font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Total Pagado:</span>
+                                <span className="font-display-lg font-black text-primary dark:text-dark-primary text-xl tracking-tighter">${formatMoney(selectedSale.total_usd)}</span>
+                            </div>
+                            <div className="text-right text-[11px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70 mb-4">
                                 / {formatMoney(selectedSale.total_bs)} BS
                             </div>
+
+                            {/* BOTÓN EDITAR TICKET (SOLO SI EL TICKET PERTENECE A LA JORNADA DE HOY) */}
+                            {isSaleFromToday(selectedSale.created_at) && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedSale(null);
+                                        router.get(route('pos.index'), { edit_sale_id: selectedSale.id });
+                                    }}
+                                    className="w-full mt-2 bg-primary/10 text-primary dark:bg-dark-primary/10 dark:text-dark-primary py-2.5 rounded-lg font-black text-xs uppercase tracking-wider flex justify-center items-center gap-2 hover:bg-primary/20 dark:hover:bg-dark-primary/20 transition-all border border-primary/20 dark:border-dark-primary/20 shadow-sm"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                    Editar Ticket
+                                </button>
+                            )}
+
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* SIDEBAR HISTORIAL DE TICKETS (Operativa Diaria) */}
+            {/* SIDEBAR HISTORIAL DE TICKETS (Solo vemos las de hoy aquí) */}
             <div className={`fixed inset-0 z-[110] transition-all duration-300 ${isHistoryOpen ? 'visible' : 'invisible'}`}>
                 <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isHistoryOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setIsHistoryOpen(false)} />
                 <div className={`absolute right-0 top-0 h-full w-full max-w-md bg-surface dark:bg-dark-surface shadow-2xl border-l border-outline-variant dark:border-dark-outline transform transition-transform duration-300 flex flex-col ${isHistoryOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                     <div className="p-6 border-b border-outline-variant dark:border-dark-outline flex justify-between items-center bg-surface-container-low dark:bg-dark-background/50">
                         <div>
                             <h3 className="font-headline-sm font-black text-on-surface dark:text-white uppercase tracking-tighter text-lg">Historial de Ventas</h3>
-                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant font-bold uppercase tracking-widest">Del período seleccionado</p>
+                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant font-bold uppercase tracking-widest">Tickets procesados hoy</p>
                         </div>
                         <button onClick={() => setIsHistoryOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-error/10 text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-all">
                             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -561,6 +568,11 @@ export default function Dashboard({
                                 </div>
                             </div>
                         ))}
+                        {ventasRecientes.length === 0 && (
+                            <div className="text-center p-8 border border-dashed border-outline-variant dark:border-dark-outline rounded-xl bg-surface-container-lowest dark:bg-dark-surface/30">
+                                <p className="text-on-surface-variant dark:text-dark-on-surface-variant font-medium text-sm">No hay registros hoy.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

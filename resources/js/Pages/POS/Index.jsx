@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
-export default function POS({ products }) {
+// 1. Añadimos el prop editSaleData que viene del PosController
+export default function POS({ products, editSaleData = null }) {
     const { tasa_bcv } = usePage().props;
     const tasaBCV = Number(tasa_bcv);
 
     const [cart, setCart] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [toast, setToast] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('Efectivo');
+    const [paymentMethod, setPaymentMethod] = useState('Pago Movil');
     const [amountPaid, setAmountPaid] = useState('');
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -18,6 +19,20 @@ export default function POS({ products }) {
     });
 
     useEffect(() => localStorage.setItem('ik_pos_sort', sortBy), [sortBy]);
+
+    // 2. NUEVO: Lógica de precarga asíncrona para el modo Edición
+    useEffect(() => {
+        if (editSaleData && editSaleData.items && editSaleData.items.length > 0) {
+            setCart(editSaleData.items);
+            setPaymentMethod(editSaleData.payment_method || 'Pago Movil');
+            // Formateamos el monto original pagado quitando decimales sueltos para el input
+            setAmountPaid(String(Math.floor(editSaleData.amount_paid || '')));
+
+            // Notificamos al usuario del modo especial
+            setToast(`Modo Edición: Ticket #${editSaleData.id}`);
+            setTimeout(() => setToast(''), 4000);
+        }
+    }, [editSaleData]);
 
     const addToCart = (product) => {
         setCart(prevCart => {
@@ -88,34 +103,75 @@ export default function POS({ products }) {
     });
 
     const confirmSale = () => {
-        router.post(route('sales.store'), {
+        // Objeto consolidado para envío
+        const payload = {
             cart: cart,
             tasa_bcv: tasaBCV,
             payment_method: paymentMethod,
-            subtotal_bs: totalBs, // Sin descuentos, subtotal = total
-            discount_bs: 0,       // Descuentos removidos
+            subtotal_bs: totalBs,
+            discount_bs: 0,
             total_bs: totalBs,
             total_usd: totalUSD,
             change_loss_bs: calculatedLossBs
-        }, {
-            onSuccess: () => {
-                setCart([]);
-                setIsModalOpen(false);
-                setPaymentMethod('Efectivo');
-                setSearchQuery('');
-                setAmountPaid('');
-                setToast('¡Venta registrada exitosamente!');
-                setTimeout(() => setToast(''), 3000);
-            }
-        });
+        };
+
+        // 3. NUEVO: Enrutamiento Dual (PUT si hay ID, POST si es nuevo)
+        if (editSaleData) {
+            router.put(route('sales.update', editSaleData.id), payload, {
+                onSuccess: () => {
+                    setCart([]);
+                    setIsModalOpen(false);
+                    setPaymentMethod('Pago Movil');
+                    setSearchQuery('');
+                    setAmountPaid('');
+                    setToast('¡Ticket modificado exitosamente!');
+                    setTimeout(() => setToast(''), 3000);
+                    // Redirigir de vuelta al Dashboard tras editar para mantener el flujo
+                    setTimeout(() => router.get(route('dashboard')), 1500);
+                }
+            });
+        } else {
+            router.post(route('sales.store'), payload, {
+                onSuccess: () => {
+                    setCart([]);
+                    setIsModalOpen(false);
+                    setPaymentMethod('Pago Movil');
+                    setSearchQuery('');
+                    setAmountPaid('');
+                    setToast('¡Venta registrada exitosamente!');
+                    setTimeout(() => setToast(''), 3000);
+                }
+            });
+        }
     };
 
     return (
         <MainLayout>
             <div className="bg-background text-on-background dark:bg-dark-background min-h-screen relative font-body-md text-body-md antialiased transition-colors">
-                <Head title="Punto de Venta" />
+                {/* Header dinámico para reflejar el estado */}
+                <Head title={editSaleData ? `Edición de Ticket #${editSaleData.id}` : "Punto de Venta"} />
 
                 <main className="w-full px-margin-mobile py-md max-w-7xl mx-auto pb-40">
+
+                    {/* Alerta de Modo Edición con opción de salida */}
+                    {editSaleData && (
+                        <div className="mb-4 bg-primary/10 border border-primary/30 rounded-xl p-4 flex justify-between items-center animate-fade-in">
+                            <div>
+                                <h2 className="text-primary dark:text-dark-primary font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                    Editando Ticket #{editSaleData.id}
+                                </h2>
+                                <p className="text-xs text-on-surface-variant font-medium mt-1">Modificar cantidades actualizará el inventario actual.</p>
+                            </div>
+                            <button
+                                onClick={() => router.get(route('dashboard'))}
+                                className="text-xs font-black uppercase text-error hover:underline transition-all"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex flex-col lg:flex-row justify-end items-start lg:items-center gap-4 mb-6 w-full">
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
                             <div className="relative w-full sm:w-64 lg:w-72 h-10">
@@ -208,10 +264,13 @@ export default function POS({ products }) {
                                             <h3 className="font-headline-sm text-body-md font-bold leading-tight line-clamp-2 mb-1 text-gray-800 dark:text-dark-on-surface transition-colors uppercase tracking-tight text-xs">
                                                 {product.name}
                                             </h3>
-                                            <div className="flex justify-between items-baseline mt-1 border-t border-outline-variant/30 dark:border-dark-outline pt-1 transition-colors">
+
+                                            {/* Ajuste de Jerarquía Tipográfica Horizontal */}
+                                            <div className="flex justify-between items-center mt-1 border-t border-outline-variant/30 dark:border-dark-outline pt-2 transition-colors">
                                                 <p className="font-label-md text-primary dark:text-dark-primary font-black tracking-tighter text-sm">${precioUSD}</p>
-                                                <p className="font-label-sm text-on-surface-variant dark:text-dark-on-surface-variant font-bold text-[10px]">{precioBs} Bs</p>
+                                                <p className="font-label-md text-on-surface dark:text-white font-black text-sm">{precioBs} <span className="text-[9px] font-normal uppercase opacity-70">Bs</span></p>
                                             </div>
+
                                         </div>
                                     </div>
                                 );
@@ -227,8 +286,8 @@ export default function POS({ products }) {
                                 onClick={() => setIsModalOpen(true)}
                                 className="w-full bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background py-sm rounded-full font-label-md text-headline-sm font-black shadow-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 border dark:border-dark-primary/20"
                             >
-                                <span className="material-symbols-outlined font-bold">shopping_cart_checkout</span>
-                                VER PEDIDO (${totalUSD.toFixed(2)})
+                                <span className="material-symbols-outlined font-bold">{editSaleData ? 'edit_square' : 'shopping_cart_checkout'}</span>
+                                {editSaleData ? 'ACTUALIZAR TICKET' : 'VER PEDIDO'} (${totalUSD.toFixed(2)})
                             </button>
                         </div>
                     </div>
@@ -239,7 +298,9 @@ export default function POS({ products }) {
                         <div className="bg-surface dark:bg-dark-surface w-full md:max-w-md rounded-t-2xl md:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border dark:border-dark-outline">
 
                             <div className="px-md py-sm border-b border-outline-variant dark:border-dark-outline flex justify-between items-center bg-surface-bright dark:bg-dark-surface-container">
-                                <h2 className="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-dark-on-surface uppercase tracking-widest text-xs">Resumen de la venta</h2>
+                                <h2 className="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-dark-on-surface uppercase tracking-widest text-xs">
+                                    {editSaleData ? `Edición de Venta #${editSaleData.id}` : 'Resumen de la venta'}
+                                </h2>
                                 <button
                                     onClick={() => setIsModalOpen(false)}
                                     className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-on-surface dark:hover:text-white rounded-full p-1 hover:bg-surface-container dark:hover:bg-dark-background transition-colors border dark:border-dark-outline"
@@ -267,9 +328,11 @@ export default function POS({ products }) {
 
                                                 <div>
                                                     <p className="font-body-md text-on-surface dark:text-dark-on-surface font-bold leading-tight text-sm uppercase">{item.product.name}</p>
-                                                    <p className="font-body-sm text-on-surface-variant dark:text-dark-on-surface-variant mt-0.5 text-[10px] font-medium">
-                                                        ${Number(item.product.price_usd).toFixed(2)} <span className="opacity-50">({itemBs} Bs)</span>
-                                                    </p>
+                                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                        <span className="font-black text-primary dark:text-dark-primary text-xs">${Number(item.product.price_usd).toFixed(2)}</span>
+                                                        <span className="text-outline-variant dark:text-dark-outline text-[10px]">|</span>
+                                                        <span className="font-black text-on-surface dark:text-white text-xs">{itemBs} Bs</span>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -294,8 +357,8 @@ export default function POS({ products }) {
                                     </label>
                                     <div className="flex gap-2">
                                         {[
-                                            { id: 'Efectivo', icon: 'payments' },
                                             { id: 'Pago Movil', icon: 'smartphone' },
+                                            { id: 'Efectivo', icon: 'payments' },
                                             { id: 'Divisas', icon: 'attach_money' }
                                         ].map(method => {
                                             const isActive = paymentMethod === method.id;
@@ -345,18 +408,18 @@ export default function POS({ products }) {
                                 <div className="border-t border-outline-variant/50 dark:border-dark-outline pt-3 mt-4">
                                     <div className="flex justify-between items-end mt-2">
                                         <p className="font-headline-sm text-on-surface dark:text-white font-black text-lg uppercase tracking-tighter">Total</p>
-                                        <div className="text-right">
-                                            <p className="font-headline-md text-primary dark:text-dark-primary font-black leading-none text-2xl tracking-tighter">${totalUSD.toFixed(2)}</p>
-                                            <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant mt-1 font-black opacity-60">~ {totalBs.toFixed(2)} Bs</p>
+                                        <div className="text-right flex flex-col items-end gap-0.5">
+                                            <p className="font-headline-md text-primary dark:text-dark-primary font-black leading-none text-2xl md:text-3xl tracking-tighter">${totalUSD.toFixed(2)}</p>
+                                            <p className="font-headline-md text-on-surface dark:text-white font-black leading-none text-2xl md:text-3xl tracking-tighter">{totalBs.toFixed(2)} <span className="text-xs uppercase tracking-widest opacity-80">Bs</span></p>
                                         </div>
                                     </div>
                                 </div>
                                 <button
                                     onClick={confirmSale}
-                                    className="mt-4 w-full bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background py-sm rounded-lg font-label-md text-headline-sm font-black shadow-md hover:opacity-90 transition-all flex justify-center items-center gap-2 border dark:border-dark-primary/20"
+                                    className={`mt-4 w-full text-on-primary dark:text-dark-background py-sm rounded-lg font-label-md text-headline-sm font-black shadow-md hover:opacity-90 transition-all flex justify-center items-center gap-2 border dark:border-dark-primary/20 ${editSaleData ? 'bg-error dark:bg-error/90' : 'bg-primary dark:bg-dark-primary'}`}
                                 >
-                                    <span className="material-symbols-outlined">verified</span>
-                                    CONFIRMAR VENTA
+                                    <span className="material-symbols-outlined">{editSaleData ? 'save' : 'verified'}</span>
+                                    {editSaleData ? 'CONFIRMAR CAMBIOS' : 'CONFIRMAR VENTA'}
                                 </button>
                             </div>
                         </div>
@@ -365,7 +428,7 @@ export default function POS({ products }) {
 
                 {toast && (
                     <div className="fixed top-24 right-4 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background px-6 py-3 rounded-lg shadow-2xl z-[200] font-black animate-fade-in flex items-center gap-2 border dark:border-dark-primary/30">
-                        <span className="material-symbols-outlined">check_circle</span>
+                        <span className="material-symbols-outlined">info</span>
                         <span className="text-xs uppercase tracking-widest">{toast}</span>
                     </div>
                 )}
