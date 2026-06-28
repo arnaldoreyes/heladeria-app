@@ -15,6 +15,7 @@ export default function Index({ auth, products, restockHistory = [] }) {
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [bulkPriceBs, setBulkPriceBs] = useState('');
+    const [bulkPriceUsd, setBulkPriceUsd] = useState('');
     const [bulkStock, setBulkStock] = useState('');
 
     // --- ESTADOS DE NUEVA REPOSICIÓN (CARRITO INVERTIDO) ---
@@ -38,10 +39,14 @@ export default function Index({ auth, products, restockHistory = [] }) {
         setTimeout(() => setToast(''), 3000);
     };
 
+    // --- CORRECCIÓN MATEMÁTICA ---
     const sanitizeDecimal = (val) => {
-        let v = String(val).replace(',', '.').replace(/[^0-9.]/g, '');
-        const p = v.split('.');
-        if (p.length > 2) v = p[0] + '.' + p.slice(1).join('').replace(/\./g, '');
+        let v = String(val).replace(',', '.');
+        v = v.replace(/[^0-9.]/g, '');
+        const parts = v.split('.');
+        if (parts.length > 2) {
+            v = parts[0] + '.' + parts.slice(1).join('');
+        }
         return v;
     };
 
@@ -59,7 +64,7 @@ export default function Index({ auth, products, restockHistory = [] }) {
         });
     };
 
-    // --- LÓGICA DE REPOSICIÓN (CARRITO INVERTIDO TIPO POS) ---
+    // --- LÓGICA DE REPOSICIÓN ---
     const addToRestock = (product) => {
         setRestockCart(prev => {
             const existing = prev.find(i => i.product.id === product.id);
@@ -107,10 +112,17 @@ export default function Index({ auth, products, restockHistory = [] }) {
         router.post(route('products.bulkUpdate'), {
             ids: selectedIds,
             price_bs: bulkPriceBs !== '' ? bulkPriceBs : null,
-            price_usd: bulkPriceBs !== '' ? (bulkPriceBs / tasaBCV).toFixed(2) : null,
+            price_usd: bulkPriceUsd !== '' ? bulkPriceUsd : null,
             stock: bulkStock !== '' ? bulkStock : null
         }, {
-            onSuccess: () => { setSelectedIds([]); setBulkPriceBs(''); setBulkStock(''); setIsBulkEditModalOpen(false); showToast('Actualizado masivamente!'); }
+            onSuccess: () => {
+                setSelectedIds([]);
+                setBulkPriceBs('');
+                setBulkPriceUsd('');
+                setBulkStock('');
+                setIsBulkEditModalOpen(false);
+                showToast('Actualizado masivamente!');
+            }
         });
     };
 
@@ -149,30 +161,29 @@ export default function Index({ auth, products, restockHistory = [] }) {
 
                 <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-margin-desktop py-6 md:py-8 relative">
 
-                    {/* ENCABEZADO Y BOTONES DE ACCIÓN MEJORADOS */}
+                    {/* ENCABEZADO Y BOTONES DE ACCIÓN (PUNTO 3 CORREGIDO: MÓVIL RESPONSIVE) */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 w-full border-b border-outline-variant/30 dark:border-dark-outline pb-6">
                         <div>
                             <h2 className="font-headline-lg text-headline-lg text-on-surface dark:text-white mb-1 font-bold tracking-tight">Gestión de Inventario</h2>
                             <p className="font-body-sm text-body-sm text-on-surface-variant dark:text-dark-on-surface-variant">Controla tu stock y registra compras.</p>
                         </div>
 
-                        <div className="flex flex-row items-center justify-between md:justify-end gap-2 w-full md:w-auto overflow-x-auto hide-scrollbar">
-                            <button onClick={() => setIsRestockHistorySidebarOpen(true)} className="flex items-center gap-1.5 px-3 h-[36px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-[10px] sm:text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface">
-                                <span className="material-symbols-outlined text-[16px]">history</span>
-                                Histórico
+                        <div className="flex flex-row items-center justify-between md:justify-end gap-2 w-full md:w-auto">
+                            <button onClick={() => setIsRestockHistorySidebarOpen(true)} className="flex flex-1 md:flex-none items-center justify-center gap-1.5 px-3 md:px-4 h-[36px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-[10px] sm:text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface" title="Histórico">
+                                <span className="material-symbols-outlined text-[18px]">history</span>
+                                <span className="hidden sm:inline">Histórico</span>
                             </button>
-                            <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-1.5 px-3 h-[36px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-[10px] sm:text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface">
-                                <span className="material-symbols-outlined text-[16px]">add</span>
-                                Producto
+                            <button onClick={() => setIsCreateModalOpen(true)} className="flex flex-1 md:flex-none items-center justify-center gap-1.5 px-3 md:px-4 h-[36px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-[10px] sm:text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface" title="Nuevo Producto">
+                                <span className="material-symbols-outlined text-[18px]">add</span>
+                                <span className="hidden sm:inline">Producto</span>
                             </button>
-                            <button onClick={() => setIsRestockModalOpen(true)} className="flex items-center gap-1.5 px-4 h-[36px] bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background hover:opacity-90 transition-all rounded-lg shadow-sm font-black text-[10px] sm:text-xs uppercase tracking-wider shrink-0 border dark:border-dark-primary/20">
-                                <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-                                Reposición
+                            <button onClick={() => setIsRestockModalOpen(true)} className="flex flex-1 md:flex-none items-center justify-center gap-1.5 px-3 md:px-4 h-[36px] bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background hover:opacity-90 transition-all rounded-lg shadow-sm font-black text-[10px] sm:text-xs uppercase tracking-wider shrink-0 border dark:border-dark-primary/20" title="Reposición">
+                                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                                <span className="hidden sm:inline">Reposición</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* FILTROS MINIMALISTAS CORREGIDOS */}
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 w-full px-1">
                         <div className="flex items-center gap-3 w-full md:w-auto">
                             {productosProcesados.length > 0 && (
@@ -200,7 +211,6 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                 )}
                             </div>
 
-                            {/* SELECTOR NATIVO LIMPIO */}
                             <div className="flex items-center gap-1 w-full sm:w-auto h-8 border-b border-outline-variant/60 dark:border-dark-outline focus-within:border-primary dark:focus-within:border-dark-primary transition-colors">
                                 <span className="material-symbols-outlined text-on-surface-variant dark:text-dark-on-surface-variant text-[18px] pointer-events-none shrink-0">sort</span>
                                 <select
@@ -218,7 +228,7 @@ export default function Index({ auth, products, restockHistory = [] }) {
                         </div>
                     </div>
 
-                    {/* GRILLA DE PRODUCTOS */}
+                    {/* GRILLA DE PRODUCTOS (PUNTO 4 CORREGIDO: EDICIÓN INLINE ELIMINADA) */}
                     {productosProcesados.length === 0 ? (
                         <div className="text-center p-12 mt-4 border border-dashed border-outline-variant dark:border-dark-outline rounded-2xl bg-surface-container-lowest dark:bg-dark-background/40">
                             <span className="material-symbols-outlined text-[48px] text-on-surface-variant/50 dark:text-dark-on-surface-variant/50 mb-4 block">inventory_2</span>
@@ -227,57 +237,10 @@ export default function Index({ auth, products, restockHistory = [] }) {
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
                             {productosProcesados.map(product => {
-                                const isEditing = editingId === product.id;
                                 const isLowStock = Number(product.stock) <= 1;
                                 const isSelected = selectedIds.includes(product.id);
                                 const precioUSD = Number(product.price_usd).toFixed(2);
                                 const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
-
-                                if (isEditing) {
-                                    return (
-                                        <div key={product.id} className="bg-surface-container-lowest dark:bg-dark-surface border-2 border-primary dark:border-dark-primary rounded-xl p-4 shadow-xl relative overflow-hidden transition-all col-span-2 md:col-span-4 lg:col-span-5">
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary dark:bg-dark-primary"></div>
-                                            <div className="flex flex-col gap-4 pl-2">
-                                                <div className="flex flex-col">
-                                                    <label className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-[0.2em] mb-1 whitespace-nowrap">Nombre</label>
-                                                    <input id={`edit_name_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" type="text" defaultValue={product.name} />
-                                                </div>
-                                                <div className="grid grid-cols-3 gap-3 w-full">
-                                                    <div className="flex flex-col">
-                                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Stock actual</label>
-                                                        <input id={`edit_stock_${product.id}`} type="text" inputMode="numeric" className="font-headline-sm text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" defaultValue={product.stock} onChange={e => e.target.value = sanitizeInteger(e.target.value)} />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Precio Bs</label>
-                                                        <input id={`edit_price_bs_${product.id}`} type="text" inputMode="decimal" className="font-body-md text-on-surface dark:text-white bg-surface-container-lowest dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" defaultValue={precioBs} onChange={(e) => {
-                                                            const val = sanitizeDecimal(e.target.value);
-                                                            e.target.value = val;
-                                                            document.getElementById(`edit_price_usd_${product.id}`).value = val ? (val / tasaBCV).toFixed(2) : '';
-                                                        }} />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <label className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 whitespace-nowrap">Ref USD</label>
-                                                        <input id={`edit_price_usd_${product.id}`} type="text" inputMode="decimal" className="font-body-md text-primary dark:text-dark-primary bg-primary-container/10 dark:bg-dark-primary/10 border border-primary/50 dark:border-dark-primary/30 rounded-md px-2 md:px-3 py-2 w-full font-bold text-sm" defaultValue={product.price_usd} onChange={(e) => {
-                                                            const val = sanitizeDecimal(e.target.value);
-                                                            e.target.value = val;
-                                                            document.getElementById(`edit_price_bs_${product.id}`).value = val ? (val * tasaBCV).toFixed(2) : '';
-                                                        }} />
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center justify-end w-full gap-3 border-t border-outline-variant dark:border-dark-outline pt-3 mt-1">
-                                                    <button onClick={() => setEditingId(null)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error dark:hover:text-error px-4 py-2 rounded-lg text-xs font-black uppercase transition-colors border border-transparent dark:hover:border-dark-outline">Cancelar</button>
-                                                    <button onClick={() => {
-                                                        const newName = document.getElementById(`edit_name_${product.id}`).value;
-                                                        const newStock = document.getElementById(`edit_stock_${product.id}`).value;
-                                                        const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
-                                                        const newPriceUsd = document.getElementById(`edit_price_usd_${product.id}`).value;
-                                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: 1 }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
-                                                    }} className="bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background px-6 py-2 rounded-lg text-xs font-black uppercase transition-all shadow-md">Guardar</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
 
                                 return (
                                     <div key={product.id} className={`bg-surface dark:bg-dark-surface border rounded-xl p-3 md:p-4 flex flex-col relative shadow-sm hover:shadow-md select-none ${isSelected ? 'border-primary ring-1 ring-primary dark:border-dark-primary dark:ring-dark-primary' : 'border-outline-variant dark:border-dark-outline'}`}>
@@ -356,37 +319,40 @@ export default function Index({ auth, products, restockHistory = [] }) {
             {/* MODAL: CARRITO INVERTIDO PARA REPOSICIÓN REDISEÑADO */}
             {isRestockModalOpen && (
                 <div className="fixed inset-0 bg-black/90 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-fade-in transition-all">
-                    <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-t-2xl md:rounded-xl w-full max-w-4xl h-[95vh] md:max-h-[85vh] shadow-2xl border dark:border-dark-outline flex flex-col overflow-hidden">
+                    <div className="bg-surface-container-lowest dark:bg-dark-surface w-full h-full md:h-[90vh] md:max-w-4xl shadow-2xl border dark:border-dark-outline flex flex-col overflow-hidden md:rounded-xl">
 
-                        {/* Cabecera del Modal */}
-                        <div className="px-5 py-4 border-b border-outline-variant/50 dark:border-dark-outline flex justify-between items-center bg-surface-bright dark:bg-dark-surface-container shrink-0">
+                        {/* Cabecera del Modal (Ajustada para Armonía y Responsive) */}
+                        <div className="px-4 py-3 md:px-5 md:py-4 border-b border-outline-variant/50 dark:border-dark-outline flex justify-between items-center bg-surface-bright dark:bg-dark-surface-container shrink-0">
                             <div>
-                                <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-sm tracking-widest flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary dark:text-dark-primary">inventory_2</span>
+                                <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-[12px] md:text-sm tracking-widest flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[18px] md:text-[24px]">inventory_2</span>
                                     Registrar Compra
                                 </h3>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center justify-center gap-1 text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest bg-primary/10 px-2 py-1.5 md:px-3 md:py-1.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors">
+                                    <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                                    <span className="hidden md:inline">Nuevo Producto</span>
+                                </button>
                                 {restockCart.length > 0 && (
-                                    <button onClick={clearRestockCart} className="text-[10px] font-black uppercase tracking-widest text-error hover:text-error/80 transition-colors flex items-center gap-1 bg-error/10 px-2 py-1 rounded">
-                                        <span className="material-symbols-outlined text-[14px]">delete_sweep</span> Vaciar
+                                    <button onClick={clearRestockCart} className="text-[10px] font-black uppercase tracking-widest text-error hover:text-error/80 transition-colors flex items-center justify-center gap-1 bg-error/10 px-2 py-1.5 md:px-3 md:py-1.5 rounded border border-error/20 hover:bg-error/20">
+                                        <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                                        <span className="hidden md:inline">Vaciar</span>
                                     </button>
                                 )}
-                                <button onClick={() => { setIsRestockModalOpen(false); clearRestockCart(); }} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors">
-                                    <span className="material-symbols-outlined">close</span>
+                                <button onClick={() => { setIsRestockModalOpen(false); clearRestockCart(); }} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors ml-1">
+                                    <span className="material-symbols-outlined text-[20px] md:text-[24px]">close</span>
                                 </button>
                             </div>
                         </div>
 
-                        {/* Contenido dividido */}
-                        <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
+                        {/* Contenido dividido: Columna en móvil, Fila en Desktop */}
+                        <div className="flex flex-col md:flex-row flex-grow overflow-hidden relative">
 
-                            {/* Lado Izquierdo: Catálogo y Carrito */}
-                            <div className="w-full md:w-3/5 border-b md:border-b-0 md:border-r border-outline-variant/30 dark:border-dark-outline flex flex-col overflow-hidden h-[60vh] md:h-full">
-
-                                {/* Lista de Productos */}
-                                <div className="p-3 border-b border-outline-variant/30 dark:border-dark-outline bg-surface-container-lowest dark:bg-dark-background/50 h-[30vh] md:h-[40vh] overflow-y-auto shrink-0 relative">
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                            {/* Lado Izquierdo: Catálogo de Productos */}
+                            <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-outline-variant/30 dark:border-dark-outline flex flex-col h-[40vh] md:h-full shrink-0 md:shrink">
+                                <div className="p-3 overflow-y-auto flex-grow bg-surface-container-lowest dark:bg-dark-background/50">
+                                    <div className="grid grid-cols-2 gap-2">
                                         {products.map(p => (
                                             <button
                                                 key={p.id}
@@ -399,54 +365,49 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                         ))}
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Carrito Invertido (Sin icono) */}
-                                <div className="flex-grow overflow-y-auto p-3 flex flex-col gap-2 bg-surface-container-lowest/50 dark:bg-dark-background/20 relative">
+                            {/* Lado Derecho: Carrito + Totales */}
+                            <div className="w-full md:w-1/2 flex flex-col flex-grow overflow-hidden bg-surface-container-lowest/50 dark:bg-dark-background/20 relative">
+
+                                {/* Lista de productos a reponer (Scrollable) */}
+                                <div className="flex-grow overflow-y-auto p-3 flex flex-col gap-2">
                                     {restockCart.length === 0 ? (
-                                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                                            <p className="text-xs font-bold uppercase tracking-widest">Aún no has agregado helados</p>
+                                        <div className="flex-grow flex items-center justify-center opacity-40 min-h-[150px]">
+                                            <p className="text-xs font-bold uppercase tracking-widest text-center">Aún no has agregado helados</p>
                                         </div>
                                     ) : (
                                         restockCart.map(item => (
-                                            <div key={item.product.id} className="flex justify-between items-center p-2 rounded-lg border border-outline-variant/50 dark:border-dark-outline bg-surface dark:bg-dark-surface shadow-sm">
+                                            <div key={item.product.id} className="flex justify-between items-center p-2 rounded-lg border border-outline-variant/50 dark:border-dark-outline bg-surface dark:bg-dark-surface shadow-sm shrink-0">
                                                 <div className="flex-grow min-w-0 pr-2">
                                                     <p className="text-[11px] sm:text-xs font-bold uppercase text-on-surface dark:text-white truncate">{item.product.name}</p>
                                                 </div>
-
-                                                {/* Controles POS */}
                                                 <div className="flex items-center gap-1 shrink-0">
-                                                    <button onClick={() => updateRestockQty(item.product.id, item.quantity - 1)} className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
+                                                    <button onClick={() => updateRestockQty(item.product.id, item.quantity - 1)} className="w-7 h-7 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
                                                         <span className="material-symbols-outlined text-[16px]">remove</span>
                                                     </button>
                                                     <input
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        value={item.quantity}
+                                                        type="text" inputMode="numeric" value={item.quantity}
                                                         onChange={(e) => updateRestockQty(item.product.id, sanitizeInteger(e.target.value))}
-                                                        className="w-10 sm:w-12 h-8 text-center font-black text-sm bg-transparent border-none focus:ring-0 px-0 text-on-surface dark:text-white"
+                                                        className="w-10 h-8 text-center font-black text-sm bg-transparent border-none focus:ring-0 px-0 text-on-surface dark:text-white"
                                                     />
-                                                    <button onClick={() => updateRestockQty(item.product.id, item.quantity + 1)} className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
+                                                    <button onClick={() => updateRestockQty(item.product.id, item.quantity + 1)} className="w-7 h-7 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
                                                         <span className="material-symbols-outlined text-[16px]">add</span>
                                                     </button>
-                                                    <div className="w-px h-6 bg-outline-variant/50 mx-1"></div>
-                                                    <button onClick={() => removeFromRestock(item.product.id)} className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-error bg-error/10 hover:bg-error border border-error/20 hover:text-white rounded transition-colors">
-                                                        <span className="material-symbols-outlined text-[14px] sm:text-[16px]">delete</span>
+                                                    <button onClick={() => removeFromRestock(item.product.id)} className="w-7 h-7 flex items-center justify-center text-error bg-error/10 hover:bg-error border border-error/20 hover:text-white rounded transition-colors ml-1">
+                                                        <span className="material-symbols-outlined text-[14px]">delete</span>
                                                     </button>
                                                 </div>
                                             </div>
                                         ))
                                     )}
                                 </div>
-                            </div>
 
-                            {/* Lado Derecho: Gasto Total y Resumen */}
-                            <div className="w-full md:w-2/5 p-5 flex flex-col bg-surface-container-low dark:bg-dark-background/80 shrink-0 h-[35vh] md:h-auto overflow-y-auto">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant dark:text-dark-on-surface-variant mb-4">Inversión de Reposición</h4>
-                                <div className="flex flex-col gap-4 mb-4">
-                                    <div>
-                                        <label className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1.5 block">Total Gastado (Divisas / Efectivo USD)</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-primary">$</span>
+                                {/* Footer de Totales */}
+                                <div className="p-4 bg-surface-container-low dark:bg-dark-background/80 shrink-0 border-t border-outline-variant/30 dark:border-dark-outline shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none mt-auto">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-primary dark:text-dark-primary text-sm">$</span>
                                             <input
                                                 type="text" inputMode="decimal" placeholder="0.00"
                                                 value={restockTotalUsd}
@@ -454,14 +415,11 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                                     const v = sanitizeDecimal(e.target.value);
                                                     setRestockTotalUsd(v); setRestockTotalBs(v ? (v * tasaBCV).toFixed(2) : '');
                                                 }}
-                                                className="w-full pl-7 pr-3 py-2.5 rounded-lg border border-primary/30 dark:border-dark-primary/30 bg-primary/5 dark:bg-dark-primary/10 text-primary dark:text-dark-primary font-black text-lg focus:border-primary focus:ring-0"
+                                                className="w-full pl-6 pr-2 py-2 rounded-lg border border-primary/30 dark:border-dark-primary/30 bg-primary/5 dark:bg-dark-primary/10 text-primary dark:text-dark-primary font-black text-base focus:border-primary focus:ring-0 text-center"
                                             />
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1.5 block">Total Gastado (Bs / Pago Móvil)</label>
-                                        <div className="relative">
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-on-surface-variant opacity-50 text-sm">Bs</span>
+                                        <span className="material-symbols-outlined text-[14px] text-on-surface-variant opacity-50 shrink-0">sync_alt</span>
+                                        <div className="relative flex-1">
                                             <input
                                                 type="text" inputMode="decimal" placeholder="0.00"
                                                 value={restockTotalBs}
@@ -469,21 +427,21 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                                     const v = sanitizeDecimal(e.target.value);
                                                     setRestockTotalBs(v); setRestockTotalUsd(v ? (v / tasaBCV).toFixed(2) : '');
                                                 }}
-                                                className="w-full pl-3 pr-8 py-2.5 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white font-black text-lg focus:border-primary focus:ring-0"
+                                                className="w-full pl-2 pr-6 py-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white font-black text-base focus:border-primary focus:ring-0 text-center"
                                             />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-on-surface-variant opacity-50 text-[10px]">Bs</span>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="mt-auto pt-4 border-t border-outline-variant/30 dark:border-dark-outline">
                                     <button
                                         onClick={submitRestock}
                                         disabled={restockCart.length === 0 || (!restockTotalUsd && !restockTotalBs)}
-                                        className="w-full py-3 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-sm uppercase rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 transition-all border dark:border-dark-primary/20 flex justify-center items-center gap-2"
+                                        className="w-full py-2.5 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase tracking-wider rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 transition-all border dark:border-dark-primary/20 flex justify-center items-center gap-2"
                                     >
-                                        <span className="material-symbols-outlined">save</span>
+                                        <span className="material-symbols-outlined text-[18px]">save</span>
                                         Guardar Factura
                                     </button>
                                 </div>
+
                             </div>
                         </div>
                     </div>
@@ -598,28 +556,13 @@ export default function Index({ auth, products, restockHistory = [] }) {
                 </div>
             )}
 
-            {isBulkDeleteModalOpen && (
-                <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
-                    <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-lg w-full max-w-sm shadow-2xl border dark:border-dark-outline">
-                        <div className="flex items-center gap-3 mb-4 text-error">
-                            <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0 border border-error/20"><span className="material-symbols-outlined text-[24px]">warning_amber</span></div>
-                            <h3 className="font-headline-sm font-bold text-on-surface dark:text-white uppercase tracking-tighter">Eliminación Masiva</h3>
-                        </div>
-                        <p className="text-sm text-on-surface-variant dark:text-dark-on-surface-variant mb-6 leading-relaxed">Eliminarás <strong className="text-on-surface dark:text-white">{selectedIds.length} productos</strong> al mismo tiempo.</p>
-                        <div className="flex justify-end gap-3 border-t border-outline-variant dark:border-dark-outline pt-4">
-                            <button onClick={() => setIsBulkDeleteModalOpen(false)} className="px-4 py-2 text-on-surface-variant dark:text-dark-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high dark:hover:bg-dark-background rounded-lg transition-all border border-transparent dark:hover:border-dark-outline">Cancelar</button>
-                            <button onClick={handleBulkDelete} className="px-5 py-2 bg-error text-onError hover:bg-error/90 font-black text-xs uppercase rounded-lg shadow-lg">Sí, Eliminar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+            {/* MODAL DE EDICIÓN MASIVA */}
             {isBulkEditModalOpen && (
                 <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
                     <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-lg w-full max-w-md shadow-2xl border dark:border-dark-outline">
                         <div className="flex justify-between items-center mb-md border-b dark:border-dark-outline pb-4">
                             <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-sm tracking-widest">Edición Masiva</h3>
-                            <button onClick={() => { setIsBulkEditModalOpen(false); setBulkPriceBs(''); setBulkStock(''); }} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors"><span className="material-symbols-outlined">close</span></button>
+                            <button onClick={() => { setIsBulkEditModalOpen(false); setBulkPriceBs(''); setBulkPriceUsd(''); setBulkStock(''); }} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors"><span className="material-symbols-outlined">close</span></button>
                         </div>
                         <p className="text-xs text-on-surface-variant mb-4">Modifica precio o stock global para <strong className="text-on-surface dark:text-white">{selectedIds.length} items</strong>.</p>
                         <div className="flex flex-col gap-4">
@@ -630,17 +573,37 @@ export default function Index({ auth, products, restockHistory = [] }) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col justify-end">
                                     <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Nuevo Precio (Bs)</label>
-                                    <input type="text" inputMode="decimal" value={bulkPriceBs} onChange={e => setBulkPriceBs(sanitizeDecimal(e.target.value))} className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary" placeholder="0.00" />
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={bulkPriceBs}
+                                        onChange={e => {
+                                            const val = sanitizeDecimal(e.target.value);
+                                            setBulkPriceBs(val);
+                                            setBulkPriceUsd(val ? (val / tasaBCV).toFixed(2) : '');
+                                        }}
+                                        className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary" placeholder="0.00"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="font-label-md text-primary dark:text-dark-primary mb-1.5 block font-black text-[10px] uppercase tracking-widest">Equivalente ($)</label>
-                                    <input type="text" inputMode="decimal" value={bulkPriceBs ? (bulkPriceBs / tasaBCV).toFixed(2) : ''} onChange={e => setBulkPriceBs(e.target.value ? (sanitizeDecimal(e.target.value) * tasaBCV).toFixed(2) : '')} className="w-full bg-primary/5 dark:bg-dark-primary/10 border border-primary/30 dark:border-dark-primary/30 rounded-lg px-3 py-2 text-primary dark:text-dark-primary font-black text-sm shadow-sm focus:border-primary" placeholder="0.00" />
+                                    <label className="font-label-md text-primary dark:text-dark-primary mb-1.5 block font-black text-[10px] uppercase tracking-widest">Nuevo Precio ($)</label>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={bulkPriceUsd}
+                                        onChange={e => {
+                                            const val = sanitizeDecimal(e.target.value);
+                                            setBulkPriceUsd(val);
+                                            setBulkPriceBs(val ? (val * tasaBCV).toFixed(2) : '');
+                                        }}
+                                        className="w-full bg-primary/5 dark:bg-dark-primary/10 border border-primary/30 dark:border-dark-primary/30 rounded-lg px-3 py-2 text-primary dark:text-dark-primary font-black text-sm shadow-sm focus:border-primary" placeholder="0.00"
+                                    />
                                 </div>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-6 border-t border-outline-variant dark:border-dark-outline pt-4">
-                            <button onClick={() => { setIsBulkEditModalOpen(false); setBulkPriceBs(''); setBulkStock(''); }} className="px-4 py-2 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all">Cancelar</button>
-                            <button onClick={handleBulkEdit} disabled={!bulkPriceBs && !bulkStock} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 disabled:opacity-50">Aplicar</button>
+                            <button onClick={() => { setIsBulkEditModalOpen(false); setBulkPriceBs(''); setBulkPriceUsd(''); setBulkStock(''); }} className="px-4 py-2 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all">Cancelar</button>
+                            <button onClick={handleBulkEdit} disabled={!bulkPriceBs && !bulkPriceUsd && !bulkStock} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 disabled:opacity-50">Aplicar</button>
                         </div>
                     </div>
                 </div>
@@ -681,12 +644,67 @@ export default function Index({ auth, products, restockHistory = [] }) {
                 </div>
             )}
 
-            {toast && (
-                <div className="fixed top-24 right-4 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background px-6 py-3 rounded-lg shadow-2xl z-[200] font-black animate-fade-in flex items-center gap-2 border dark:border-dark-primary/30">
-                    <span className="material-symbols-outlined">check_circle</span>
-                    <span className="text-xs uppercase tracking-widest">{toast}</span>
-                </div>
-            )}
+            {/* PUNTO 4 CORREGIDO: MODAL DE EDICIÓN INDIVIDUAL */}
+            {editingId && (() => {
+                const product = products.find(p => p.id === editingId);
+                if (!product) return null;
+                const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
+
+                return (
+                    <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
+                        <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-6 w-full max-w-sm shadow-2xl border dark:border-dark-outline">
+                            <div className="flex justify-between items-center mb-4 border-b border-outline-variant/30 dark:border-dark-outline pb-3">
+                                <h3 className="font-headline-md text-primary dark:text-dark-primary font-black uppercase text-sm tracking-widest flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[18px]">edit_square</span> Editar Producto
+                                </h3>
+                                <button onClick={() => setEditingId(null)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors">
+                                    <span className="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col gap-4 mt-2">
+                                <div className="flex flex-col">
+                                    <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Nombre</label>
+                                    <input id={`edit_name_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" type="text" defaultValue={product.name} />
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 w-full">
+                                    <div className="flex flex-col">
+                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Stock</label>
+                                        <input id={`edit_stock_${product.id}`} type="text" inputMode="numeric" className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full font-bold text-sm" defaultValue={product.stock} onChange={e => e.target.value = sanitizeInteger(e.target.value)} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Precio Bs</label>
+                                        <input id={`edit_price_bs_${product.id}`} type="text" inputMode="decimal" className="font-body-md text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full font-bold text-sm" defaultValue={precioBs} onChange={(e) => {
+                                            const val = sanitizeDecimal(e.target.value);
+                                            e.target.value = val;
+                                            document.getElementById(`edit_price_usd_${product.id}`).value = val ? (val / tasaBCV).toFixed(2) : '';
+                                        }} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 whitespace-nowrap">Ref USD</label>
+                                        <input id={`edit_price_usd_${product.id}`} type="text" inputMode="decimal" className="font-body-md text-primary dark:text-dark-primary bg-primary/5 dark:bg-dark-primary/10 border border-primary/30 dark:border-dark-primary/30 rounded-md px-3 py-2 w-full font-bold text-sm" defaultValue={product.price_usd} onChange={(e) => {
+                                            const val = sanitizeDecimal(e.target.value);
+                                            e.target.value = val;
+                                            document.getElementById(`edit_price_bs_${product.id}`).value = val ? (val * tasaBCV).toFixed(2) : '';
+                                        }} />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-3 mt-2 border-t border-outline-variant/30 dark:border-dark-outline pt-4">
+                                    <button onClick={() => setEditingId(null)} className="px-4 py-2 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all">Cancelar</button>
+                                    <button onClick={() => {
+                                        const newName = document.getElementById(`edit_name_${product.id}`).value;
+                                        const newStock = document.getElementById(`edit_stock_${product.id}`).value;
+                                        const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
+                                        const newPriceUsd = document.getElementById(`edit_price_usd_${product.id}`).value;
+                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: 1 }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
+                                    }} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 shadow-md">Guardar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
         </MainLayout>
     );
 }

@@ -75,9 +75,6 @@ export default function Dashboard({
                             <span className="material-symbols-outlined text-[18px]">calendar_today</span>
                             {getCurrentFormattedDate()}
                         </p>
-                        <p className="text-xs font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-0.5">
-                            Mostrando el mes en curso
-                        </p>
                     </div>
 
                     <div className="flex flex-row items-center justify-between md:justify-end gap-2 w-full md:w-auto">
@@ -208,7 +205,7 @@ export default function Dashboard({
                     {/* VENTAS RECIENTES (LAS DE HOY CON INDICADOR) */}
                     <div className="flex flex-col">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="font-headline-sm font-bold text-on-surface dark:text-dark-on-surface tracking-tight flex items-center gap-2">
+                            <h2 className="text-sm md:text-headline-sm font-bold text-on-surface dark:text-dark-on-surface tracking-tight flex items-center gap-2">
                                 Ventas de Hoy
                                 <span className="bg-primary/10 dark:bg-dark-primary/10 text-primary dark:text-dark-primary px-2 py-0.5 rounded text-sm">${formatMoney(totalHoyUsd)}</span>
                             </h2>
