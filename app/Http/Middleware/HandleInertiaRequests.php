@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use App\Models\Setting;
 use App\Services\BcvScraperService;
+use Carbon\Carbon;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -31,19 +32,27 @@ class HandleInertiaRequests extends Middleware
         if ($mode === 'manual' && $manualRate > 0) {
             $tasaFinal = $manualRate;
         } else {
-            // Lógica Auto con TU PROPIO SCRAPER (Cacheado por 2 horas)
-            $tasaFinal = Cache::remember('tasa_bcv_global', now()->addHours(2), function () use ($settings) {
-                // Instanciamos nuestro servicio
+            // Lógica Auto con TU PROPIO SCRAPER (Expiración a medianoche o máx 2 horas)
+            $now = Carbon::now('America/Caracas');
+            $midnight = Carbon::tomorrow('America/Caracas');
+            $ttl = max(60, $now->diffInSeconds($midnight));
+            $ttl = min(7200, $ttl); // Máximo 2 horas de caché
+
+            $tasaFinal = Cache::remember('tasa_bcv_global', $ttl, function () use ($settings) {
                 $scraper = new BcvScraperService();
-                $price = $scraper->getUsdRate();
                 
-                if ($price !== null && $price > 0) {
-                    Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $price]);
-                    return $price;
+                // 1. Promover tasa futura programada si hoy ya es el día
+                $scraper->promoteScheduledRateIfApplicable();
+
+                // 2. Intentar scraping para buscar actualizaciones
+                $bcvData = $scraper->getUsdData();
+                if ($bcvData !== null) {
+                    $scraper->processAndStoreBcvData($bcvData);
                 }
-                
-                // Si falla el scraping, devuelve la última tasa guardada
-                return (float) ($settings['last_bcv_rate'] ?? 1); 
+
+                // 3. Devolver la tasa activa actual
+                $currentRate = Setting::where('key', 'last_bcv_rate')->value('value');
+                return (float) ($currentRate ?? $settings['last_bcv_rate'] ?? 1); 
             });
         }
 

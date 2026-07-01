@@ -1,58 +1,145 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🍦 Ice King Popsicle - Sistema POS e Inventario
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Ice King Popsicle** es un sistema de Punto de Venta (POS), control de inventario y analítica contable diseñado específicamente para heladerías y negocios similares que operan en economías multimoneda (como la venezolana). La aplicación permite facturar en Dólares ($) y Bolívares (Bs.), adaptándose dinámicamente a la tasa de cambio oficial en tiempo real.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🚀 Stack Tecnológico
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+La aplicación está construida sobre una arquitectura moderna, rápida y altamente estructurada:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+*   **Backend:** [Laravel 11.x](https://laravel.com) (PHP 8.x) - Proporciona una base sólida con Eloquent ORM, migraciones ordenadas, transacciones de base de datos seguras y un sistema de tareas programadas (Cron).
+*   **Frontend:** [React 18](https://react.dev) - Interfaz de usuario dinámica, interactiva y responsiva.
+*   **Conexión Backend-Frontend:** [Inertia.js](https://inertiajs.com) - Permite construir la aplicación SPA (Single Page Application) utilizando enrutamiento y controladores nativos de Laravel, compartiendo el estado global sin necesidad de escribir APIs REST complejas.
+*   **Diseño y Estilos:** [Tailwind CSS](https://tailwindcss.com) y CSS Vanilla - Estilizado limpio, moderno y responsivo con soporte nativo de **Modo Oscuro / Modo Claro** (persistido en local storage).
+*   **Iconos:** [Material Symbols Outlined](https://fonts.google.com/icons) de Google.
+*   **Entorno de Contenedores:** Docker configurado mediante un archivo `docker-compose.yml` multi-servicio.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 🛠️ Funcionalidades al Detalle
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 1. Punto de Venta (POS) Interactivo
+*   **Venta en una Sola Pantalla:** Selección rápida de helados con visualizador de stock en tiempo real.
+*   **Precios Dinámicos:** Muestra los precios en USD ($) y realiza la conversión inmediata a Bolívares (Bs.) basándose en la tasa oficial activa del día.
+*   **Métodos de Pago:** Soporta cobros mediante **Pago Móvil**, **Divisas** (efectivo en dólares) y **Efectivo** (efectivo en bolívares).
+*   **Control de Fugas Cambiarias:** Al pagar en efectivo en bolívares, si el cliente paga menos del monto exacto por falta de cambio o redondeo, el sistema calcula la diferencia y la registra en el campo `change_loss_bs` (fuga).
+*   **Edición Segura de Ventas:** Permite modificar tickets de venta del **día actual**. El controlador devuelve temporalmente el inventario de los productos anteriores, limpia el ticket viejo, evalúa el stock del nuevo carrito (usando bloqueos de fila contra condiciones de carrera) y actualiza el total, manteniendo el inventario y la contabilidad perfectamente auditables.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+### 2. Panel de Control Financiero (Dashboard)
+*   **Distribución Automática de Caja:** Separa los ingresos brutos del mes en curso entre el **Fondo del Negocio** (por defecto 60%) y tu **Ganancia Personal** (por defecto 40%), de acuerdo con las reglas de distribución configuradas.
+*   **Ganancia Real vs. Teórica:** Resta de forma automática las pérdidas por fugas cambiarias directamente de tu porción de ganancias, calculando tu rentabilidad real.
+*   **Histórico Mensual:** Barra lateral desplegable que recopila el número de ventas, ingresos totales y pérdidas cambiarias acumuladas mes a mes.
 
-## Agentic Development
+### 3. Analítica Avanzada de Finanzas
+*   **Comportamiento de Demanda:** Gráficos e indicadores automáticos que muestran cuál es el **Día Más Fuerte** de ventas de la semana y la **Hora Pico** del negocio basándose en la fecha de creación de los tickets.
+*   **Top 5 de Productos:** Clasificación de los helados más vendidos del negocio.
+*   **Caja Libre del Negocio:** Calcula los fondos acumulados del negocio menos las compras de mercancía (Inversión en Reposición), proporcionando la caja líquida real para gastos operativos.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### 4. Control de Inventario y Reabastecimiento
+*   **CRUD Completo:** Creación, edición y eliminación de helados y categorías.
+*   **Edición Masiva:** Permite seleccionar múltiples productos para actualizar sus precios o stock en lote, o eliminarlos conjuntamente.
+*   **Sistema de Restock Transaccional:** Permite ingresar facturas de compra (en USD/Bs.). El sistema registra la compra global, detalla qué productos ingresaron y aumenta automáticamente el stock físico de las paletas de forma transaccional.
 
-```bash
-composer require laravel/boost --dev
+### 5. Configuración Cambiaria Inteligente (Tasa BCV Diferida)
+*   **Referencia Cambiaria:** Permite elegir entre tasa manual y automática.
+*   **Scraper Oficial del BCV:** En modo automático, la aplicación realiza scraping al sitio oficial del Banco Central de Venezuela (`https://www.bcv.org.ve/`) mediante XPath.
+*   **Actualización Programada (Diferida):**
+    *   *El Problema:* El BCV suele publicar la tasa del día siguiente a las 4:00 - 6:00 PM del día anterior. Si la tasa se actualizara de inmediato, afectaría los cobros del cierre de la jornada de hoy.
+    *   *La Solución:* Si el scraper detecta una tasa futura (ej: tasa del martes publicada el lunes por la tarde), la guarda en estado **programado** (`bcv_next_rate` y `bcv_next_date`).
+    *   La tasa programada **solo se activa automáticamente a las 12:01 am** del día en que entra en vigencia.
+    *   Las tasas publicadas los viernes por la tarde para el lunes se mantienen programadas durante todo el fin de semana, manteniendo activa la tasa del viernes en el sistema hasta el lunes a medianoche.
+    *   El caché del sistema (`tasa_bcv_global`) calcula su tiempo de vida dinámicamente para expirar en la medianoche de la hora de Caracas, garantizando el refresco exacto de la tasa al iniciar el nuevo día.
 
-php artisan boost:install
-```
+---
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## ⚙️ Instalación y Despliegue Local (Docker)
 
-## Contributing
+Para ejecutar la aplicación localmente en tu máquina usando Docker:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 1. Requisitos Previos
+*   Tener instalado **Git**, **Docker** y **Docker Compose**.
+*   Si estás en Windows, se recomienda utilizar el backend de **WSL2 (Windows Subsystem for Linux)**.
 
-## Code of Conduct
+### 2. Pasos de Instalación
+1.  **Clonar el repositorio:**
+    ```bash
+    git clone <url-del-repositorio> heladeria-app
+    cd heladeria-app
+    ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+2.  **Configurar las variables de entorno:**
+    Copia el archivo de ejemplo y edítalo si es necesario (el archivo predeterminado está configurado para la red interna de Docker):
+    ```bash
+    cp .env.example .env
+    ```
 
-## Security Vulnerabilities
+3.  **Iniciar los contenedores de Docker:**
+    Levanta la infraestructura de base de datos MySQL, PHP-FPM, Nginx y Cron en segundo plano:
+    ```bash
+    docker-compose up -d
+    ```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+4.  **Instalar dependencias del Backend:**
+    Instala los paquetes de PHP mediante composer dentro del contenedor de la aplicación:
+    ```bash
+    docker exec -it ice_king_app composer install
+    ```
 
-## License
+5.  **Generar la clave de la aplicación Laravel:**
+    ```bash
+    docker exec -it ice_king_app php artisan key:generate
+    ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+6.  **Instalar dependencias del Frontend y compilar assets:**
+    ```bash
+    docker exec -it ice_king_app npm install
+    ```
+    *Nota: El servidor de desarrollo Vite (`npm run dev`) se ejecuta de forma automática en segundo plano al levantar los contenedores mediante Docker.*
+
+7.  **Poblar la Base de Datos:**
+    Elige una de las dos opciones para sembrar tu base de datos:
+
+    *   **Opción A: Base de datos limpia con catálogo inicial (Recomendada para producción/negocio real)**
+        Prepara las tablas e instala el catálogo de helados predeterminado con stock inicial:
+        ```bash
+        docker exec -it ice_king_app php artisan migrate:fresh --seed
+        ```
+        *(Esta opción utiliza `InitialDataSeeder` de forma predeterminada).*
+
+    *   **Opción B: Base de datos con historial de demostración de 3 meses (Recomendada para pruebas o grabar videos)**
+        Si deseas probar el sistema con datos de ventas falsos distribuidos en los últimos 90 días, entra temporalmente al archivo [DatabaseSeeder.php](file:///wsl.localhost/Ubuntu/home/arnaldo/proyectos/heladeria-app/database/seeders/DatabaseSeeder.php), descomenta `DemoDataSeeder::class` y corre:
+        ```bash
+        docker exec -it ice_king_app php artisan migrate:fresh --seed
+        ```
+        Esto creará:
+        *   **1 Usuario Administrador:** `admin@iceking.com` / Contraseña: `password`.
+        *   **Más de 1,100 ventas** realistas distribuidas en los últimos 3 meses.
+        *   Histórico de compras de mercancía (Restocks) y productos con stock disponible para vender.
+
+8.  **¡Listo! Acceder a la aplicación:**
+    *   Abre tu navegador e ingresa a: **`http://localhost:8000`**
+    *   Para ingresar a las rutas de gestión, inicia sesión con el usuario administrador.
+
+---
+
+## ⌨️ Comandos Clave del Sistema
+
+El sistema cuenta con comandos de consola útiles que se ejecutan automáticamente en el cron interno de Docker, pero también puedes ejecutarlos manualmente:
+
+*   **Actualizar Tasa BCV y promover tasas diferidas:**
+    Conéctate a la web del BCV, extrae la tasa actual, agenda tasas futuras y promueve la tasa correspondiente si el día ha cambiado:
+    ```bash
+    docker exec -it ice_king_app php artisan bcv:update-rate
+    ```
+
+*   **Limpiar Caché del Sistema (Tasa y vistas):**
+    Si modificas alguna regla contable o cambias el dólar manual y deseas forzar la recarga:
+    ```bash
+    docker exec -it ice_king_app php artisan cache:clear
+    ```
+
+---
+
+## 🔒 Licencia
+Este software es privado y está protegido para el uso exclusivo del negocio **Ice King Popsicle**.

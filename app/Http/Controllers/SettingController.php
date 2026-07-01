@@ -57,15 +57,24 @@ class SettingController extends Controller
      */
     public function forceApiRefresh(BcvScraperService $scraperService)
     {
-        // Usamos nuestro servicio dedicado para scrapear la página
-        $price = $scraperService->getUsdRate();
+        // Usamos nuestro servicio dedicado para obtener la tasa y la fecha
+        $bcvData = $scraperService->getUsdData();
 
-        if ($price !== null && $price > 0) {
-            Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $price]);
+        if ($bcvData !== null) {
+            $result = $scraperService->processAndStoreBcvData($bcvData);
+            
             Setting::updateOrCreate(['key' => 'bcv_mode'], ['value' => 'auto']);
             Cache::forget('tasa_bcv_global');
             
-            return back()->with('success', '¡Tasa actualizada exitosamente desde bcv.org.ve!');
+            if ($result['status'] === 'activated_today') {
+                return back()->with('success', "¡Tasa de hoy ({$result['rate']} Bs.) actualizada exitosamente!");
+            } elseif ($result['status'] === 'scheduled_future') {
+                $formattedRateDate = \Carbon\Carbon::parse($result['rate_date'])->locale('es')->translatedFormat('l d \d\e F');
+                $formattedActivationDate = \Carbon\Carbon::parse($result['date'])->locale('es')->translatedFormat('l d \d\e F');
+                return back()->with('success', "¡Tasa de {$result['rate']} Bs. (valor {$formattedRateDate}) programada para activarse el {$formattedActivationDate} a las 12:01 am!");
+            }
+
+            return back()->with('success', '¡Tasa procesada con éxito!');
         }
 
         return back()->withErrors(['api_error' => 'No se pudo leer la tasa de la página del BCV. Intenta más tarde o usa el modo manual.']);

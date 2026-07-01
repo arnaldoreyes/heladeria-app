@@ -8,6 +8,15 @@ export default function Finances({ analytics, history, global_stats }) {
 
     const formatMoney = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
+    const format12h = (time24) => {
+        if (!time24 || time24 === 'N/A') return 'N/A';
+        const parts = time24.split(':');
+        const hour24 = parseInt(parts[0], 10);
+        const ampm = hour24 >= 12 ? 'pm' : 'am';
+        const hour12 = hour24 % 12 || 12;
+        return `${hour12}:${parts[1]} ${ampm}`;
+    };
+
     return (
         <MainLayout>
             <Head title="Analítica Financiera" />
@@ -50,18 +59,31 @@ export default function Finances({ analytics, history, global_stats }) {
 
                 {/* FILA SUPERIOR: DEMANDA Y PRODUCTOS */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-surface dark:bg-dark-surface border border-outline-variant/50 dark:border-dark-outline rounded-xl p-5 shadow-sm flex flex-col justify-center">
+                    <div className="bg-surface dark:bg-dark-surface border border-outline-variant/50 dark:border-dark-outline rounded-xl p-5 shadow-sm flex flex-col justify-between">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4 border-b dark:border-dark-outline pb-2 flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">insights</span> Comportamiento de Demanda
                         </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[10px] uppercase font-bold text-on-surface-variant">Día Más Fuerte</p>
-                                <p className="text-xl font-black text-primary dark:text-dark-primary mt-1 uppercase">{analytics.best_day}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-grow flex items-center">
+                            {/* Bloque Día Más Fuerte */}
+                            <div className="bg-surface-container-low dark:bg-[#121212]/80 p-4 rounded-xl border border-outline-variant/20 dark:border-dark-outline/40 flex items-center gap-4 w-full">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 dark:bg-dark-primary/10 flex items-center justify-center text-primary dark:text-dark-primary shrink-0">
+                                    <span className="material-symbols-outlined text-[24px]">calendar_month</span>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] uppercase font-black tracking-widest text-on-surface-variant">Día Más Fuerte</p>
+                                    <p className="text-lg font-black text-on-surface dark:text-white uppercase mt-0.5">{analytics.best_day}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] uppercase font-bold text-on-surface-variant">Hora Pico</p>
-                                <p className="text-xl font-black text-primary dark:text-dark-primary mt-1">{analytics.peak_hour}</p>
+
+                            {/* Bloque Hora Pico */}
+                            <div className="bg-surface-container-low dark:bg-[#121212]/80 p-4 rounded-xl border border-outline-variant/20 dark:border-dark-outline/40 flex items-center gap-4 w-full">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 dark:bg-dark-primary/10 flex items-center justify-center text-primary dark:text-dark-primary shrink-0">
+                                    <span className="material-symbols-outlined text-[24px]">schedule</span>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] uppercase font-black tracking-widest text-on-surface-variant">Hora Pico</p>
+                                    <p className="text-lg font-black text-on-surface dark:text-white mt-0.5">{format12h(analytics.peak_hour)}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
