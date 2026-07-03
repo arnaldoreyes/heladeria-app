@@ -25,25 +25,25 @@ export default defineConfig({
                 start_url: '/',
                 icons: [
                     {
-                        src: '/img/Icon_192.png',
+                        src: '/img/new_icon_192.png',
                         sizes: '192x192',
                         type: 'image/png'
                     },
                     {
-                        src: '/img/Icon_512.png',
+                        src: '/img/new_icon_512.png',
                         sizes: '512x512',
                         type: 'image/png'
                     }
                 ],
                 screenshots: [
                     {
-                        src: '/img/Icon_512.png',
+                        src: '/img/new_icon_512.png',
                         sizes: '512x512',
                         type: 'image/png',
                         form_factor: 'wide'
                     },
                     {
-                        src: '/img/Icon_512.png',
+                        src: '/img/new_icon_512.png',
                         sizes: '512x512',
                         type: 'image/png'
                     }
