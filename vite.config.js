@@ -76,4 +76,15 @@ export default defineConfig({
             '@': '/resources/js',
         },
     },
+    build: {
+        sourcemap: false,
+    },
+    esbuild: {
+        sourcemap: false,
+    },
+    optimizeDeps: {
+        esbuildOptions: {
+            sourcemap: false,
+        },
+    },
 });

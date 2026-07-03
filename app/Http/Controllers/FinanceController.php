@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Sale;
 use App\Models\Restock;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
@@ -17,45 +18,31 @@ class FinanceController extends Controller
         $allSales = Sale::with('items.product')->get();
         $allRestocks = Restock::all();
 
-        $salesByDay = array_fill(0, 7, 0); 
-        $salesByHour = array_fill(0, 24, 0);
-        $productsCount = [];
+        // 1. Resumen Global (Delegado a SQL)
+        $globalGross = Sale::sum('total_usd');
+        $globalLoss = Sale::where('tasa_bcv', '>', 0)->sum(DB::raw('change_loss_bs / tasa_bcv'));
+        $globalSalesCount = Sale::count();
+        $globalRestock = Restock::sum('total_usd');
 
-        // Variables para Resumen Global
-        $globalGross = 0;
-        $globalLoss = 0;
-        $globalSalesCount = $allSales->count();
+        // Top 5 Productos optimizado por SQL
+        $topProducts = \Illuminate\Support\Facades\DB::table('sale_items')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->select('products.name', \Illuminate\Support\Facades\DB::raw('SUM(sale_items.quantity) as total_vendido'))
+            ->groupBy('products.name')
+            ->orderByDesc('total_vendido')
+            ->take(5)
+            ->pluck('total_vendido', 'name')
+            ->toArray();
 
-        foreach ($allSales as $sale) {
-            $date = Carbon::parse($sale->created_at);
-            $salesByDay[$date->dayOfWeek] += $sale->total_usd;
-            $salesByHour[$date->hour] += $sale->total_usd;
+        // Mejores Tiempos (Usando la colección ya cargada)
+        $salesByHour = $allSales->groupBy(function ($sale) { return \Carbon\Carbon::parse($sale->created_at)->hour; })
+                                ->map(function ($group) { return $group->sum('total_usd'); });
+        $peakHour = $salesByHour->isNotEmpty() ? str_pad($salesByHour->sortDesc()->keys()->first(), 2, '0', STR_PAD_LEFT) . ':00' : 'N/A';
 
-            $globalGross += $sale->total_usd;
-            // Evitar división por cero
-            $loss = ($sale->tasa_bcv > 0) ? ($sale->change_loss_bs / $sale->tasa_bcv) : 0;
-            $globalLoss += $loss;
-
-            foreach ($sale->items as $item) {
-                $prodName = $item->product ? $item->product->name : 'Eliminado';
-                if (!isset($productsCount[$prodName])) $productsCount[$prodName] = 0;
-                $productsCount[$prodName] += $item->quantity;
-            }
-        }
-
-        $globalRestock = $allRestocks->sum('total_usd');
-
-        // Mejores Tiempos
-        $peakHourIndex = !empty(array_filter($salesByHour)) ? array_search(max($salesByHour), $salesByHour) : null;
-        $peakHour = $peakHourIndex !== null ? str_pad($peakHourIndex, 2, '0', STR_PAD_LEFT) . ':00' : 'N/A';
-
-        $bestDayIndex = !empty(array_filter($salesByDay)) ? array_search(max($salesByDay), $salesByDay) : null;
-        $daysMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        $bestDay = $bestDayIndex !== null ? $daysMap[$bestDayIndex] : 'N/A';
-
-        // Top Productos
-        arsort($productsCount);
-        $topProducts = array_slice($productsCount, 0, 5, true);
+        $salesByDay = $allSales->groupBy(function ($sale) { return \Carbon\Carbon::parse($sale->created_at)->dayOfWeek; })
+                               ->map(function ($group) { return $group->sum('total_usd'); });
+        $daysMap = [0 => 'Domingo', 1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado'];
+        $bestDay = $salesByDay->isNotEmpty() ? $daysMap[$salesByDay->sortDesc()->keys()->first()] : 'N/A';
 
         // 2. CONSOLIDADO MENSUAL (Histórico)
         $monthlySales = $allSales->groupBy(function($sale) { return Carbon::parse($sale->created_at)->format('Y-m'); });
@@ -96,6 +83,7 @@ class FinanceController extends Controller
                 'best_week' => $bestWeek ? "Semana $bestWeek" : 'N/A',
                 'total_restock_usd' => (float) $mRestocks->sum('total_usd'),
                 'restock_count' => $mRestocks->count(),
+                'sales' => $mSales->sortByDesc('created_at')->values(),
             ];
         }
 

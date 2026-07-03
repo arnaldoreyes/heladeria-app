@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
@@ -31,8 +31,10 @@ export default function Index({ auth, products, restockHistory = [] }) {
     // --- BÚSQUEDA Y ORDENAMIENTO ---
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState(() => localStorage.getItem('ik_inventory_sort') || 'name_asc');
+    const [showOutOfStock, setShowOutOfStock] = useState(() => localStorage.getItem('ik_inventory_show_out_of_stock') !== 'false');
 
     useEffect(() => localStorage.setItem('ik_inventory_sort', sortBy), [sortBy]);
+    useEffect(() => localStorage.setItem('ik_inventory_show_out_of_stock', showOutOfStock), [showOutOfStock]);
 
     const showToast = (message) => {
         setToast(message);
@@ -132,24 +134,32 @@ export default function Index({ auth, products, restockHistory = [] }) {
         });
     };
 
-    // --- ORDENAMIENTO Y FILTRADO ---
-    let productosProcesados = [...products];
-    if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        productosProcesados = productosProcesados.filter(p => p.name.toLowerCase().includes(query));
-    }
-    productosProcesados.sort((a, b) => {
-        const sA = Number(a.stock), sB = Number(b.stock);
-        if (sA <= 0 && sB > 0) return 1;
-        if (sA > 0 && sB <= 0) return -1;
-        if (sA <= 0 && sB <= 0) return a.name.localeCompare(b.name);
-        if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
-        if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
-        if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
-        if (sortBy === 'stock_desc') return sB - sA;
-        if (sortBy === 'stock_asc') return sA - sB;
-        return 0;
-    });
+    // --- ORDENAMIENTO Y FILTRADO (OPTIMIZADO CON USEMEMO) ---
+    const productosProcesados = useMemo(() => {
+        let filtrados = [...products];
+
+        if (!showOutOfStock) {
+            filtrados = filtrados.filter(p => Number(p.stock) > 0);
+        }
+
+        if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
+            filtrados = filtrados.filter(p => p.name.toLowerCase().includes(query));
+        }
+        
+        return filtrados.sort((a, b) => {
+            const sA = Number(a.stock), sB = Number(b.stock);
+            if (sA <= 0 && sB > 0) return 1;
+            if (sA > 0 && sB <= 0) return -1;
+            if (sA <= 0 && sB <= 0) return a.name.localeCompare(b.name);
+            if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+            if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
+            if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
+            if (sortBy === 'stock_desc') return sB - sA;
+            if (sortBy === 'stock_asc') return sA - sB;
+            return 0;
+        });
+    }, [products, showOutOfStock, searchQuery, sortBy]);
 
     const formatTime = (dateString) => new Date(dateString).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
     const formatMoney = (val) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(val);
@@ -211,19 +221,31 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-1 w-full sm:w-auto h-8 border-b border-outline-variant/60 dark:border-dark-outline focus-within:border-primary dark:focus-within:border-dark-primary transition-colors">
-                                <span className="material-symbols-outlined text-on-surface-variant dark:text-dark-on-surface-variant text-[18px] pointer-events-none shrink-0">sort</span>
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    className="w-full sm:w-auto bg-transparent border-none text-on-surface dark:text-white text-[11px] font-bold uppercase tracking-widest focus:ring-0 cursor-pointer outline-none pl-1 py-1"
-                                >
-                                    <option value="name_asc">Alfabético</option>
-                                    <option value="price_desc">Mayor Precio</option>
-                                    <option value="price_asc">Menor Precio</option>
-                                    <option value="stock_desc">Mayor Stock</option>
-                                    <option value="stock_asc">Menor Stock</option>
-                                </select>
+                            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                                <div className="flex items-center gap-2 border-b sm:border-none border-outline-variant/60 dark:border-dark-outline pb-2 sm:pb-0 w-full sm:w-auto justify-between sm:justify-start">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-dark-on-surface-variant whitespace-nowrap">Ocultar Agotados</span>
+                                    <button 
+                                        onClick={() => setShowOutOfStock(!showOutOfStock)}
+                                        className={`w-9 h-5 rounded-full flex items-center transition-colors shadow-inner border border-outline-variant/30 dark:border-dark-outline ${!showOutOfStock ? 'bg-primary dark:bg-dark-primary border-primary dark:border-dark-primary' : 'bg-surface-container-highest dark:bg-[#222]'}`}
+                                    >
+                                        <div className={`w-3.5 h-3.5 rounded-full bg-white dark:bg-dark-background mx-0.5 transition-transform shadow-sm ${!showOutOfStock ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center gap-1 w-full sm:w-auto h-8 border-b border-outline-variant/60 dark:border-dark-outline focus-within:border-primary dark:focus-within:border-dark-primary transition-colors">
+                                    <span className="material-symbols-outlined text-on-surface-variant dark:text-dark-on-surface-variant text-[18px] pointer-events-none shrink-0">sort</span>
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value)}
+                                        className="w-full sm:w-auto bg-transparent border-none text-on-surface dark:text-white text-[11px] font-bold uppercase tracking-widest focus:ring-0 cursor-pointer outline-none pl-1 py-1"
+                                    >
+                                        <option value="name_asc">Alfabético</option>
+                                        <option value="price_desc">Mayor Precio</option>
+                                        <option value="price_asc">Menor Precio</option>
+                                        <option value="stock_desc">Mayor Stock</option>
+                                        <option value="stock_asc">Menor Stock</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -237,16 +259,18 @@ export default function Index({ auth, products, restockHistory = [] }) {
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
                             {productosProcesados.map(product => {
-                                const isLowStock = Number(product.stock) <= 1;
+                                const currentStock = Number(product.stock);
+                                const isOutOfStock = currentStock === 0;
+                                const isLowStock = currentStock > 0 && currentStock <= 5;
                                 const isSelected = selectedIds.includes(product.id);
                                 const precioUSD = Number(product.price_usd).toFixed(2);
                                 const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
 
                                 return (
-                                    <div key={product.id} className={`bg-surface dark:bg-dark-surface border rounded-xl p-3 md:p-4 flex flex-col relative shadow-sm hover:shadow-md select-none ${isSelected ? 'border-primary ring-1 ring-primary dark:border-dark-primary dark:ring-dark-primary' : 'border-outline-variant dark:border-dark-outline'}`}>
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${isLowStock ? 'bg-error' : isSelected ? 'bg-primary dark:bg-dark-primary' : 'bg-transparent'}`}></div>
-                                        <div className="w-full aspect-square rounded-lg bg-blue-50 dark:bg-dark-background mb-3 overflow-hidden relative transition-colors border dark:border-dark-outline/50 group">
-                                            <div className="w-full h-full flex items-center justify-center text-blue-400 dark:text-blue-500">
+                                    <div key={product.id} className={`bg-surface dark:bg-dark-surface border rounded-xl p-3 md:p-4 flex flex-col relative shadow-sm hover:shadow-md select-none transition-all duration-300 ${isSelected ? 'border-primary ring-1 ring-primary dark:border-dark-primary dark:ring-dark-primary' : isOutOfStock ? 'border-error/30 dark:border-error/30 opacity-70 grayscale-[0.4]' : isLowStock ? 'border-orange-500/50 dark:border-orange-500/50' : 'border-outline-variant dark:border-dark-outline'}`}>
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${isOutOfStock ? 'bg-error' : isLowStock ? 'bg-orange-500' : isSelected ? 'bg-primary dark:bg-dark-primary' : 'bg-transparent'}`}></div>
+                                        <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative transition-colors border group ${isOutOfStock ? 'bg-surface-container-highest dark:bg-[#1f1f1f] border-error/20' : isLowStock ? 'bg-orange-50 dark:bg-[#2d1b0a] border-orange-500/20' : 'bg-blue-50 dark:bg-dark-background border-outline-variant/50 dark:border-dark-outline/50'}`}>
+                                            <div className={`w-full h-full flex items-center justify-center ${isOutOfStock ? 'text-error/40' : isLowStock ? 'text-orange-400' : 'text-blue-400 dark:text-blue-500'}`}>
                                                 <span className="material-symbols-outlined opacity-80 text-[48px]">icecream</span>
                                             </div>
                                             <div className="absolute top-2 left-2 z-10">
@@ -262,12 +286,12 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                             </div>
                                         </div>
                                         <div className="flex-grow flex flex-col justify-between pl-1">
-                                            <h3 className="font-headline-sm text-body-md font-bold leading-tight line-clamp-2 mb-2 text-gray-800 dark:text-dark-on-surface uppercase tracking-tight text-xs">
+                                            <h3 className={`font-headline-sm text-body-md font-bold leading-tight line-clamp-2 mb-2 uppercase tracking-tight text-xs ${isOutOfStock ? 'text-error/80' : 'text-gray-800 dark:text-dark-on-surface'}`}>
                                                 {product.name}
                                             </h3>
                                             <div className="flex items-center gap-1 mb-2">
-                                                <span className={`text-[9px] font-black uppercase tracking-widest ${isLowStock ? 'text-error' : 'text-on-surface-variant dark:text-dark-on-surface-variant'}`}>Stock:</span>
-                                                <span className={`text-sm font-bold leading-none ${isLowStock ? 'text-error' : 'text-on-surface dark:text-white'}`}>{product.stock}</span>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest ${isOutOfStock ? 'text-error' : isLowStock ? 'text-orange-500' : 'text-on-surface-variant dark:text-dark-on-surface-variant'}`}>Stock:</span>
+                                                <span className={`text-sm font-bold leading-none ${isOutOfStock ? 'text-error' : isLowStock ? 'text-orange-500' : 'text-on-surface dark:text-white'}`}>{product.stock}</span>
                                             </div>
                                             <div className="flex flex-col mt-auto border-t border-outline-variant/30 dark:border-dark-outline pt-2">
                                                 <p className="font-label-md text-primary dark:text-dark-primary font-black tracking-tighter text-sm">${precioUSD}</p>

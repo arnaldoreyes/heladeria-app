@@ -7,33 +7,39 @@ use App\Http\Controllers\SaleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PosController;
 
-// Redirigir la raíz directamente al Punto de Venta
-Route::get('/', function () {
-    return redirect()->route('dashboard');
-});
+// Redirigir la raíz directamente al Punto de Venta (Optimizado para Route Caching)
+Route::redirect('/', '/dashboard');
 
 // Dashboard y POS
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
 
-// Rutas Masivas para el Inventario
-Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy'])->name('products.bulkDestroy');
-Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
+// Rutas Masivas y Generales para el Inventario
+Route::controller(ProductController::class)->prefix('products')->name('products.')->group(function () {
+    Route::post('/bulk-delete', 'bulkDestroy')->name('bulkDestroy');
+    Route::post('/bulk-update', 'bulkUpdate')->name('bulkUpdate');
+    Route::post('/restock', 'restock')->name('restock');
+});
 
 // Rutas de gestión y ventas
 Route::resource('categories', CategoryController::class);
 Route::resource('products', ProductController::class);
-Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
-Route::put('/sales/{sale}', [SaleController::class, 'update'])->name('sales.update');
 
-Route::post('/products/restock', [App\Http\Controllers\ProductController::class, 'restock'])->name('products.restock');
+Route::controller(SaleController::class)->prefix('sales')->name('sales.')->group(function () {
+    Route::post('/', 'store')->name('store');
+    Route::put('/{sale}', 'update')->name('update');
+});
 
 // Modulo de Configuracion
-Route::get('/settings', [App\Http\Controllers\SettingController::class, 'index'])->name('settings.index');
-Route::post('/settings', [App\Http\Controllers\SettingController::class, 'update'])->name('settings.update');
-Route::post('/settings/force-api', [App\Http\Controllers\SettingController::class, 'forceApiRefresh'])->name('settings.forceApi');
+Route::controller(App\Http\Controllers\SettingController::class)->prefix('settings')->name('settings.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'update')->name('update');
+    Route::post('/force-api', 'forceApiRefresh')->name('forceApi');
+});
 
 // Módulo de Finanzas
-Route::get('/finances', [App\Http\Controllers\FinanceController::class, 'index'])->name('finances.index');
-Route::post('/finances/expenses', [App\Http\Controllers\FinanceController::class, 'storeExpense'])->name('expenses.store');
-Route::delete('/finances/expenses/{expense}', [App\Http\Controllers\FinanceController::class, 'destroyExpense'])->name('expenses.destroy');
+Route::controller(App\Http\Controllers\FinanceController::class)->prefix('finances')->name('finances.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/expenses', 'storeExpense')->name('expenses.store');
+    Route::delete('/expenses/{expense}', 'destroyExpense')->name('expenses.destroy');
+});

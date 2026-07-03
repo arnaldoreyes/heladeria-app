@@ -1,12 +1,15 @@
 import { Head, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { useState, useEffect } from 'react';
 
 export default function Finances({ analytics, history, global_stats }) {
     const { profit_percentage, business_percentage } = usePage().props;
     const profitRatio = (profit_percentage || 30) / 100;
     const businessRatio = (business_percentage || 70) / 100;
 
-    const formatMoney = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+    const formatMoney = (amount) => {
+        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+    };
 
     const format12h = (time24) => {
         if (!time24 || time24 === 'N/A') return 'N/A';
@@ -16,12 +19,45 @@ export default function Finances({ analytics, history, global_stats }) {
         const hour12 = hour24 % 12 || 12;
         return `${hour12}:${parts[1]} ${ampm}`;
     };
+    const [selectedSale, setSelectedSale] = useState(null);
+    const [expandedMonth, setExpandedMonth] = useState(null);
 
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                if (selectedSale) setSelectedSale(null);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [selectedSale]);
+
+    const paymentIcons = {
+        'Punto de Venta': 'credit_card',
+        'Pago Móvil': 'phone_iphone',
+        'Efectivo Bs': 'payments',
+        'Efectivo Divisas': 'attach_money',
+        'Zelle': 'account_balance',
+        'Transferencia': 'account_balance'
+    };
+
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const toggleMonth = (monthId) => {
+        if (expandedMonth === monthId) {
+            setExpandedMonth(null);
+        } else {
+            setExpandedMonth(monthId);
+        }
+    };
     return (
         <MainLayout>
             <Head title="Analítica Financiera" />
             <main className="pt-8 px-4 md:px-8 max-w-7xl mx-auto flex flex-col gap-6 pb-20">
-                
+
                 <div className="border-b border-outline-variant/30 dark:border-dark-outline pb-3">
                     <h1 className="font-headline-sm text-xl font-black tracking-tight text-on-surface dark:text-white uppercase">
                         Analítica Financiera
@@ -32,28 +68,28 @@ export default function Finances({ analytics, history, global_stats }) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-outline-variant/30 dark:border-dark-outline shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">account_balance</span> Ingreso Total
+                            <span className="material-symbols-outlined text-[14px]">monetization_on</span> Ingreso Total
                         </p>
-                        <p className="text-2xl font-black text-on-surface dark:text-white mt-1">{formatMoney(global_stats.total_gross)}</p>
+                        <p className="text-xl lg:text-2xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_gross)}</p>
                     </div>
                     <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-outline-variant/30 dark:border-dark-outline shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">inventory</span> Total Reposición
+                            <span className="material-symbols-outlined text-[14px]">inventory</span> Fondo ({business_percentage}%)
                         </p>
-                        <p className="text-2xl font-black text-on-surface dark:text-white mt-1">{formatMoney(global_stats.total_restock)}</p>
+                        <p className="text-xl lg:text-2xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_gross * businessRatio)}</p>
+                    </div>
+                    <div className="bg-primary/5 dark:bg-dark-primary/10 p-4 rounded-xl border border-primary/20 dark:border-dark-primary/30 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary dark:text-dark-primary flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span> Ganancia ({profit_percentage}%)
+                        </p>
+                        <p className="text-xl lg:text-2xl font-black text-primary dark:text-dark-primary mt-1">${formatMoney(Math.max(0, (global_stats.total_gross * profitRatio) - global_stats.total_loss))}</p>
                     </div>
                     <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-error/30 dark:border-error/30 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-error flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">trending_down</span> Fuga Cambiaria
+                            <span className="material-symbols-outlined text-[14px]">money_off</span> Fugas
                         </p>
-                        <p className="text-2xl font-black text-error mt-1">-{formatMoney(global_stats.total_loss)}</p>
-                    </div>
-                    <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-outline-variant/30 dark:border-dark-outline shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">receipt_long</span> Ticket Promedio
-                        </p>
-                        <p className="text-2xl font-black text-primary dark:text-dark-primary mt-1">{formatMoney(global_stats.average_ticket)}</p>
+                        <p className="text-xl lg:text-2xl font-black text-error mt-1">-${formatMoney(global_stats.total_loss)}</p>
                     </div>
                 </div>
 
@@ -110,17 +146,15 @@ export default function Finances({ analytics, history, global_stats }) {
                 {/* TABLA HISTÓRICA MENSUAL */}
                 <div>
                     <h3 className="text-xs font-black text-on-surface dark:text-white tracking-widest uppercase mb-3 border-l-2 border-primary pl-2">Desglose Mensual Detallado</h3>
-                    <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                         {history.length === 0 ? (
-                            <div className="p-8 text-center bg-surface-container-lowest dark:bg-dark-surface border border-dashed border-outline-variant dark:border-dark-outline rounded-xl">
+                            <div className="col-span-1 lg:col-span-2 p-8 text-center bg-surface-container-lowest dark:bg-dark-surface border border-dashed border-outline-variant dark:border-dark-outline rounded-xl">
                                 <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Sin registros contables.</p>
                             </div>
                         ) : (
                             history.map(month => {
                                 const fondoUsd = month.total_sales_usd * businessRatio;
                                 const gananciaUsd = Math.max(0, (month.total_sales_usd * profitRatio) - month.total_loss_usd);
-                                // Caja Real: Lo que queda en el negocio después de reponer inventario
-                                const cajaReal = fondoUsd - month.total_restock_usd;
 
                                 // Cálculos para la barra visual (si hay ventas)
                                 const totalBars = month.total_sales_usd || 1;
@@ -129,61 +163,85 @@ export default function Finances({ analytics, history, global_stats }) {
                                 const pctLoss = (month.total_loss_usd / totalBars) * 100;
 
                                 return (
-                                    <div key={month.id} className="bg-surface dark:bg-[#111111] border border-outline-variant/50 dark:border-dark-outline rounded-xl flex flex-col overflow-hidden shadow-sm">
-                                        
-                                        <div className="flex flex-col md:flex-row">
-                                            {/* Cabecera del Mes */}
-                                            <div className="bg-surface-container-low dark:bg-[#0a0a0a] p-4 flex flex-row md:flex-col justify-between items-center md:justify-center md:w-32 shrink-0 border-b md:border-b-0 md:border-r dark:border-dark-outline relative">
-                                                <span className="font-black text-sm uppercase text-on-surface dark:text-white text-center leading-tight">{month.month_name}</span>
-                                                <div className="text-center mt-2">
-                                                    <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest bg-white dark:bg-dark-surface px-1.5 py-0.5 rounded block mb-1">Mejor: {month.best_week}</span>
-                                                    <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest block">{month.sales_count} Ventas</span>
+                                    <div key={month.id} className="bg-surface-container-lowest dark:bg-[#111111] border border-outline-variant/50 dark:border-dark-outline rounded-2xl flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+
+                                        {/* CABECERA */}
+                                        <div className="p-5 border-b border-outline-variant/30 dark:border-dark-outline bg-surface-bright dark:bg-[#161616] flex justify-between items-center">
+                                            <div>
+                                                <h4 className="font-headline-sm font-black text-on-surface dark:text-white uppercase tracking-tight text-lg">{month.month_name}</h4>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[10px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-widest bg-surface-container dark:bg-dark-surface px-2 py-0.5 rounded-full">{month.sales_count} Ventas</span>
+                                                    <span className="text-[10px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-widest">Mejor: {month.best_week}</span>
                                                 </div>
                                             </div>
+                                            <button
+                                                onClick={() => toggleMonth(month.id)}
+                                                className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${expandedMonth === month.id ? 'bg-primary/10 text-primary dark:bg-dark-primary/10 dark:text-dark-primary' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high dark:bg-dark-surface dark:text-dark-on-surface-variant dark:hover:bg-dark-surface-container'}`}
+                                                title="Ver Tickets"
+                                            >
+                                                <span className="material-symbols-outlined text-[20px]">
+                                                    {expandedMonth === month.id ? 'expand_less' : 'receipt_long'}
+                                                </span>
+                                            </button>
+                                        </div>
 
-                                            {/* Datos Financieros */}
-                                            <div className="flex-1 p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-start">
-                                                <div>
-                                                    <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-0.5 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">point_of_sale</span> Ingreso Bruto</p>
-                                                    <p className="font-black text-xl text-on-surface dark:text-white leading-none">{formatMoney(month.total_sales_usd)}</p>
-                                                    <p className="text-[10px] font-bold text-on-surface-variant mt-1">Ticket Promedio: {formatMoney(month.average_ticket)}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-0.5">Fondo Negocio ({business_percentage}%)</p>
-                                                    <p className="font-black text-lg text-on-surface dark:text-white leading-none">{formatMoney(fondoUsd)}</p>
-                                                </div>
-                                                <div className="bg-primary/5 dark:bg-dark-primary/10 p-2 -m-2 rounded">
-                                                    <p className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-0.5">Ganancia ({profit_percentage}%)</p>
-                                                    <p className="font-black text-lg text-primary dark:text-dark-primary leading-none">{formatMoney(gananciaUsd)}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[9px] font-black text-error uppercase tracking-widest mb-0.5 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">warning</span> Fugas</p>
-                                                    <p className="font-black text-lg text-error leading-none">-{formatMoney(month.total_loss_usd)}</p>
-                                                    <p className="text-[10px] font-bold text-error mt-1 bg-error/10 inline-block px-1 rounded">{month.loss_percentage.toFixed(1)}% del ingreso</p>
-                                                </div>
+                                        {/* DATOS FINANCIEROS */}
+                                        <div className="p-5 grid grid-cols-2 gap-y-6 gap-x-4">
+                                            <div>
+                                                <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">monetization_on</span> Ingreso Bruto</p>
+                                                <p className="font-black text-xl lg:text-2xl text-on-surface dark:text-white leading-none">${formatMoney(month.total_sales_usd)}</p>
+                                                <p className="text-[11px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-1.5">Promedio: ${formatMoney(month.average_ticket)}</p>
                                             </div>
-
-                                            {/* Reposición y Caja Real */}
-                                            <div className="bg-surface-container-lowest dark:bg-[#161616] p-4 md:w-56 shrink-0 border-t md:border-t-0 md:border-l dark:border-dark-outline flex flex-col justify-center gap-3">
-                                                <div>
-                                                    <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">inventory_2</span> Reposición ({month.restock_count})</p>
-                                                    <p className="font-black text-lg text-on-surface dark:text-white leading-none">-{formatMoney(month.total_restock_usd)}</p>
-                                                </div>
-                                                <div className="pt-2 border-t border-outline-variant/30 dark:border-dark-outline">
-                                                    <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1" title="Fondo de Negocio - Costo de Reposición">Caja Libre del Negocio</p>
-                                                    <p className={`font-black text-lg leading-none ${cajaReal < 0 ? 'text-error' : 'text-primary dark:text-dark-primary'}`}>
-                                                        {formatMoney(cajaReal)}
-                                                    </p>
-                                                </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">inventory</span> Fondo ({business_percentage}%)</p>
+                                                <p className="font-black text-lg lg:text-xl text-on-surface dark:text-gray-300 leading-none">${formatMoney(fondoUsd)}</p>
+                                            </div>
+                                            <div className="bg-primary/5 dark:bg-dark-primary/10 p-3 rounded-xl border border-primary/10 dark:border-dark-primary/20">
+                                                <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">account_balance_wallet</span> Ganancia</p>
+                                                <p className="font-black text-xl lg:text-2xl text-primary dark:text-dark-primary leading-none">${formatMoney(gananciaUsd)}</p>
+                                            </div>
+                                            <div className="flex flex-col justify-center">
+                                                <p className="text-[10px] font-black text-error uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">money_off</span> Fugas</p>
+                                                <p className="font-black text-lg lg:text-xl text-error leading-none">-${formatMoney(month.total_loss_usd)}</p>
+                                                {month.total_loss_usd > 0 && (
+                                                    <p className="text-[10px] font-bold text-error mt-1.5 opacity-80">{month.loss_percentage.toFixed(1)}% del ingreso</p>
+                                                )}
                                             </div>
                                         </div>
-                                        
+
                                         {/* Barra visual de distribución del dinero */}
                                         {month.total_sales_usd > 0 && (
-                                            <div className="h-1.5 w-full flex bg-surface-container-highest dark:bg-dark-outline">
+                                            <div className="h-1.5 w-full flex bg-surface-container-highest dark:bg-dark-outline mt-auto">
                                                 <div style={{ width: `${pctBusiness}%` }} className="bg-on-surface-variant dark:bg-gray-500" title="Negocio"></div>
                                                 <div style={{ width: `${pctProfit}%` }} className="bg-primary dark:bg-dark-primary" title="Ganancia"></div>
                                                 <div style={{ width: `${pctLoss}%` }} className="bg-error" title="Fuga"></div>
+                                            </div>
+                                        )}
+
+                                        {/* EXPANDED TICKETS LIST */}
+                                        {expandedMonth === month.id && month.sales && month.sales.length > 0 && (
+                                            <div className="p-4 bg-surface-container-lowest dark:bg-dark-background border-t border-outline-variant/50 dark:border-dark-outline animate-fade-in">
+                                                <h3 className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-3">Listado de Tickets</h3>
+                                                <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {month.sales.map(venta => (
+                                                        <div key={venta.id} onClick={() => setSelectedSale(venta)} className="bg-surface-container-low dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl p-3 flex justify-between items-center shadow-sm hover:border-primary dark:hover:border-dark-primary cursor-pointer transition-all group">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-surface-container dark:bg-dark-background flex items-center justify-center text-primary dark:text-dark-primary shrink-0 border dark:border-dark-outline">
+                                                                    <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-on-surface dark:text-dark-on-surface uppercase text-[10px] tracking-wider group-hover:text-primary dark:group-hover:text-dark-primary">Ticket #{venta.id}</p>
+                                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                                        <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-medium">{formatTime(venta.created_at)}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right flex flex-col items-end">
+                                                                <p className="text-[11px] text-primary dark:text-dark-primary font-black tracking-tight">${formatMoney(venta.total_usd)}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -194,6 +252,114 @@ export default function Finances({ analytics, history, global_stats }) {
                 </div>
 
             </main>
+
+            {/* MODAL DEL TICKET ESPECÍFICO CON DESGLOSE DE GANANCIAS */}
+            {selectedSale && (
+                <div
+                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all overflow-y-auto"
+                    onClick={() => setSelectedSale(null)}
+                >
+                    <div
+                        className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline m-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
+                            <div className="flex justify-between items-center">
+                                <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg">Ticket #{selectedSale.id}</h2>
+                                <button onClick={() => setSelectedSale(null)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-[20px]">close</span>
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between bg-surface-container-lowest dark:bg-dark-background rounded-xl p-3 border border-outline-variant/50 dark:border-dark-outline/50 shadow-sm">
+                                <div className="flex items-center gap-2.5 flex-1">
+                                    <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-dark-surface flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant border border-outline-variant/50 dark:border-dark-outline">
+                                        <span className="material-symbols-outlined text-[16px]">schedule</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-black uppercase tracking-widest mb-0.5">Registro</p>
+                                        <p className="text-[11px] font-bold text-on-surface dark:text-white leading-none">{formatTime(selectedSale.created_at)}</p>
+                                    </div>
+                                </div>
+                                <div className="w-px h-6 bg-outline-variant dark:bg-dark-outline mx-2"></div>
+                                <div className="flex items-center gap-2.5 flex-1 justify-end text-right">
+                                    <div>
+                                        <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-black uppercase tracking-widest mb-0.5">Pago</p>
+                                        <p className="text-[11px] font-black text-primary dark:text-dark-primary uppercase leading-none">{selectedSale.payment_method}</p>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-primary/10 dark:bg-dark-primary/10 text-primary dark:text-dark-primary flex items-center justify-center border border-primary/20 dark:border-dark-primary/20 shrink-0">
+                                        <span className="material-symbols-outlined text-[16px]">{paymentIcons[selectedSale.payment_method] || 'payments'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 flex flex-col gap-3 max-h-[40vh] overflow-y-auto">
+                            <div className="grid grid-cols-12 text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant border-b border-outline-variant/50 dark:border-dark-outline pb-2 mb-2 uppercase tracking-widest">
+                                <div className="col-span-2">Cant</div>
+                                <div className="col-span-7 pl-1">Producto</div>
+                                <div className="col-span-3 text-right">Total</div>
+                            </div>
+                            {selectedSale.items && selectedSale.items.map(item => {
+                                const tasa = selectedSale.tasa_bcv || 1;
+                                const precioUsd = (Number(item.price_bs) || 0) / tasa;
+                                const totalItemUsd = precioUsd * item.quantity;
+                                return (
+                                    <div key={item.id} className="grid grid-cols-12 items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
+                                        <div className="col-span-2 font-black text-on-surface dark:text-dark-primary text-xs">{item.quantity}x</div>
+                                        <div className="col-span-7 pr-2">
+                                            <p className="font-bold text-body-sm text-on-surface dark:text-dark-on-surface leading-tight">{item.product ? item.product.name : 'Eliminado'}</p>
+                                        </div>
+                                        <div className="col-span-3 text-right font-black text-on-surface dark:text-white text-xs">${totalItemUsd.toFixed(2)}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="bg-surface-container-lowest dark:bg-dark-background p-6 border-t border-outline-variant/50 dark:border-dark-outline mt-auto">
+
+                            {/* Información de Tasa Conservada */}
+                            <div className="flex justify-between items-center mb-4 border-b border-outline-variant/30 dark:border-dark-outline/30 pb-2">
+                                <span className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Tasa del Ticket:</span>
+                                <span className="font-bold text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant">{selectedSale.tasa_bcv} Bs</span>
+                            </div>
+
+                            {/* Fugas si existen */}
+                            {Number(selectedSale.change_loss_bs) > 0 && (
+                                <div className="flex justify-between items-center text-error mb-4">
+                                    <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[14px]">money_off</span> Pérdida por Vuelto
+                                    </span>
+                                    <span className="font-black text-sm">{formatMoney(selectedSale.change_loss_bs / selectedSale.tasa_bcv)} USD</span>
+                                </div>
+                            )}
+
+                            {/* Distribución del Ticket Específico */}
+                            <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
+                                <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Negocio ({business_percentage}%)</p>
+                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.total_usd * businessRatio)}</p>
+                                </div>
+                                <div className="bg-primary/10 dark:bg-dark-primary/10 p-2 rounded border border-primary/20 dark:border-dark-primary/20">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary dark:text-dark-primary mb-1">Ganancia ({profit_percentage}%)</p>
+                                    <p className="font-black text-xs text-primary dark:text-dark-primary">${formatMoney(selectedSale.total_usd * profitRatio)}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-end">
+                                <span className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Total del Ticket:</span>
+                                <div className="text-right">
+                                    <span className="font-display-lg font-black text-on-surface dark:text-white text-xl tracking-tighter">
+                                        ${formatMoney(selectedSale.total_usd)}
+                                    </span>
+                                    <div className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">
+                                        / {formatMoney(selectedSale.total_bs)} BS
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MainLayout>
     );
 }

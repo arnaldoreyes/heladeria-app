@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
@@ -19,6 +19,21 @@ export default function Dashboard({
     // --- ESTADOS PARA EL HISTÓRICO MENSUAL ---
     const [isMonthlySidebarOpen, setIsMonthlySidebarOpen] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(null);
+
+    // Escape para cerrar todos los modales
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                if (selectedSale) setSelectedSale(null);
+                else if (selectedMonth) setSelectedMonth(null);
+                else if (isHistoryOpen) setIsHistoryOpen(false);
+                else if (isTopGlobalOpen) setIsTopGlobalOpen(false);
+                else if (isMonthlySidebarOpen) setIsMonthlySidebarOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [selectedSale, selectedMonth, isHistoryOpen, isTopGlobalOpen, isMonthlySidebarOpen]);
 
     // --- FORMATEADORES ---
     const formatMoney = (amount) => {
@@ -329,89 +344,136 @@ export default function Dashboard({
 
             {/* MODAL DEL HISTÓRICO MENSUAL ESPECÍFICO */}
             {selectedMonth && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all">
-                    <div className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline">
-
-                        <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
-                            <div className="flex justify-between items-center">
-                                <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg uppercase">{selectedMonth.month_name}</h2>
-                                <button onClick={() => setSelectedMonth(null)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-[20px]">close</span>
-                                </button>
-                            </div>
-                            <div className="flex items-center justify-between bg-surface-container-lowest dark:bg-dark-background rounded-xl p-3 border border-outline-variant/50 dark:border-dark-outline/50 shadow-sm">
-                                <div className="flex items-center gap-2.5 flex-1">
-                                    <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-dark-surface flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant border border-outline-variant/50 dark:border-dark-outline">
-                                        <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                <div 
+                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all overflow-y-auto"
+                    onClick={() => setSelectedMonth(null)}
+                >
+                    <div 
+                        className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border dark:border-dark-outline m-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* LEFT PANEL - STATS */}
+                        <div className="flex flex-col md:w-[380px] shrink-0 border-b md:border-b-0 md:border-r border-outline-variant/50 dark:border-dark-outline">
+                            <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg uppercase">{selectedMonth.month_name}</h2>
+                                    <button onClick={() => setSelectedMonth(null)} className="md:hidden text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-[20px]">close</span>
+                                    </button>
+                                </div>
+                                <div className="flex items-center justify-between bg-surface-container-lowest dark:bg-dark-background rounded-xl p-3 border border-outline-variant/50 dark:border-dark-outline/50 shadow-sm">
+                                    <div className="flex items-center gap-2.5 flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-dark-surface flex items-center justify-center text-on-surface-variant dark:text-dark-on-surface-variant border border-outline-variant/50 dark:border-dark-outline">
+                                            <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-black uppercase tracking-widest mb-0.5">Volumen</p>
+                                            <p className="text-[11px] font-bold text-on-surface dark:text-white leading-none">{selectedMonth.sales_count} Ventas</p>
+                                        </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6 flex flex-col gap-4">
+                                <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                     <div>
-                                        <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-black uppercase tracking-widest mb-0.5">Volumen</p>
-                                        <p className="text-[11px] font-bold text-on-surface dark:text-white leading-none">{selectedMonth.sales_count} Ventas</p>
+                                        <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Venta Bruta</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd)}</p>
+                                        <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs)} Bs</p>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div className="p-6 flex flex-col gap-4">
-                            <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
-                                <div>
-                                    <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Venta Bruta</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd)}</p>
-                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs)} Bs</p>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
-                                <div>
-                                    <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[12px]">inventory</span> Fondo ({business_percentage}%)
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * businessRatio)}</p>
-                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * businessRatio)} Bs</p>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
-                                <div>
-                                    <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Tu Ganancia ({profit_percentage}%)
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * profitRatio)}</p>
-                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * profitRatio)} Bs</p>
-                                </div>
-                            </div>
-
-                            {selectedMonth.total_loss_usd > 0 && (
-                                <div className="flex justify-between items-center pb-1 text-error">
+                                <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[12px]">money_off</span> Fugas
+                                        <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px]">inventory</span> Fondo ({business_percentage}%)
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-black text-sm">-${formatMoney(selectedMonth.total_loss_usd)}</p>
-                                        <p className="text-[9px] font-bold opacity-70">- {formatMoney(selectedMonth.total_loss_bs)} Bs</p>
+                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * businessRatio)}</p>
+                                        <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * businessRatio)} Bs</p>
                                     </div>
                                 </div>
-                            )}
+
+                                <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
+                                    <div>
+                                        <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Tu Ganancia ({profit_percentage}%)
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * profitRatio)}</p>
+                                        <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * profitRatio)} Bs</p>
+                                    </div>
+                                </div>
+
+                                {selectedMonth.total_loss_usd > 0 && (
+                                    <div className="flex justify-between items-center pb-1 text-error">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-[12px]">money_off</span> Fugas
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-black text-sm">-${formatMoney(selectedMonth.total_loss_usd)}</p>
+                                            <p className="text-[9px] font-bold opacity-70">- {formatMoney(selectedMonth.total_loss_bs)} Bs</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="bg-primary/5 dark:bg-[#111810] p-6 mt-auto">
+                                <div className="flex justify-between items-end mb-1">
+                                    <span className="text-xs font-black text-primary dark:text-dark-primary uppercase tracking-widest">Ganancia Neta Final:</span>
+                                    <span className="font-display-lg font-black text-primary dark:text-dark-primary text-2xl tracking-tighter">
+                                        ${formatMoney(Math.max(0, (selectedMonth.total_usd * profitRatio) - selectedMonth.total_loss_usd))}
+                                    </span>
+                                </div>
+                                <div className="text-right text-[11px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">
+                                    ~ {formatMoney(Math.max(0, (selectedMonth.total_bs * profitRatio) - selectedMonth.total_loss_bs))} BS
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="bg-primary/5 dark:bg-[#111810] p-6 border-t border-outline-variant/50 dark:border-dark-outline mt-auto">
-                            <div className="flex justify-between items-end mb-1">
-                                <span className="text-xs font-black text-primary dark:text-dark-primary uppercase tracking-widest">Ganancia Neta Final:</span>
-                                <span className="font-display-lg font-black text-primary dark:text-dark-primary text-2xl tracking-tighter">
-                                    ${formatMoney(Math.max(0, (selectedMonth.total_usd * profitRatio) - selectedMonth.total_loss_usd))}
-                                </span>
+                        {/* RIGHT PANEL - TICKETS */}
+                        <div className="flex-1 flex flex-col max-h-[60vh] md:max-h-[80vh] bg-surface-container-lowest dark:bg-dark-background">
+                            <div className="px-6 py-4 border-b border-outline-variant/50 dark:border-dark-outline flex justify-between items-center shrink-0">
+                                <h3 className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Tickets del Mes</h3>
+                                <button onClick={() => setSelectedMonth(null)} className="hidden md:flex text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors items-center justify-center">
+                                    <span className="material-symbols-outlined text-[20px]">close</span>
+                                </button>
                             </div>
-                            <div className="text-right text-[11px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">
-                                ~ {formatMoney(Math.max(0, (selectedMonth.total_bs * profitRatio) - selectedMonth.total_loss_bs))} BS
-                            </div>
+                            
+                            {selectedMonth.sales && selectedMonth.sales.length > 0 ? (
+                                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {selectedMonth.sales.map(venta => (
+                                            <div key={venta.id} onClick={() => setSelectedSale(venta)} className="bg-surface-container-low dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl p-3 flex justify-between items-center shadow-sm hover:border-primary dark:hover:border-dark-primary cursor-pointer hover:bg-surface-container-low/80 dark:hover:bg-neutral-800 transition-all group">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-surface-container dark:bg-dark-background flex items-center justify-center text-primary dark:text-dark-primary shrink-0 border dark:border-dark-outline">
+                                                        <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-on-surface dark:text-dark-on-surface uppercase text-[10px] tracking-wider group-hover:text-primary dark:group-hover:text-dark-primary">Ticket #{venta.id}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <p className="text-[9px] text-on-surface-variant dark:text-dark-on-surface-variant font-medium">{formatTime(venta.created_at)}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex flex-col items-end">
+                                                    <p className="text-[11px] text-primary dark:text-dark-primary font-black tracking-tight">${formatMoney(venta.total_usd)}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center p-6 text-on-surface-variant dark:text-dark-on-surface-variant text-sm font-medium">
+                                    No hay tickets para este mes.
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -419,8 +481,14 @@ export default function Dashboard({
 
             {/* MODAL DEL TICKET ESPECÍFICO CON DESGLOSE DE GANANCIAS */}
             {selectedSale && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all">
-                    <div className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline">
+                <div 
+                    className="fixed inset-0 z-[130] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all overflow-y-auto"
+                    onClick={() => setSelectedSale(null)}
+                >
+                    <div 
+                        className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border dark:border-dark-outline m-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
                             <div className="flex justify-between items-center">
                                 <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg">Ticket #{selectedSale.id}</h2>

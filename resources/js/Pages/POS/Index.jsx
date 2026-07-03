@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
@@ -86,23 +86,34 @@ export default function POS({ products, editSaleData = null }) {
         : 0;
     // --------------------------------------------------------
 
-    let productosProcesados = [...products];
+    const productosProcesados = useMemo(() => {
+        let filtrados = [...products];
 
-    if (searchQuery.trim() !== '') {
-        const lowerQuery = searchQuery.toLowerCase();
-        productosProcesados = productosProcesados.filter(p =>
-            p.name.toLowerCase().includes(lowerQuery)
-        );
-    }
+        if (searchQuery.trim() !== '') {
+            const lowerQuery = searchQuery.toLowerCase();
+            filtrados = filtrados.filter(p =>
+                p.name.toLowerCase().includes(lowerQuery)
+            );
+        }
 
-    productosProcesados.sort((a, b) => {
-        if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
-        if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
-        if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
-        return 0;
-    });
+        return filtrados.sort((a, b) => {
+            if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+            if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
+            if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
+            return 0;
+        });
+    }, [products, searchQuery, sortBy]);
 
     const confirmSale = () => {
+        if (paymentMethod === 'Efectivo') {
+            const paid = Number(amountPaid);
+            if (!amountPaid || isNaN(paid) || paid <= 0) {
+                setToast('Debe ingresar el monto cancelado por el cliente en efectivo.');
+                setTimeout(() => setToast(''), 3000);
+                return;
+            }
+        }
+
         // Objeto consolidado para envío
         const payload = {
             cart: cart,
@@ -112,7 +123,7 @@ export default function POS({ products, editSaleData = null }) {
             discount_bs: 0,
             total_bs: totalBs,
             total_usd: totalUSD,
-            change_loss_bs: calculatedLossBs
+            change_loss_bs: paymentMethod === 'Efectivo' ? calculatedLossBs : 0
         };
 
         // 3. NUEVO: Enrutamiento Dual (PUT si hay ID, POST si es nuevo)

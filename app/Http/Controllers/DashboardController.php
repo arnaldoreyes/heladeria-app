@@ -61,7 +61,7 @@ class DashboardController extends Controller
             });
 
         // 6. Historial Mensual Agrupado (Todos los meses para el Sidebar)
-        $allSales = Sale::all();
+        $allSales = Sale::with('items.product')->get();
         $monthlyHistory = $allSales->groupBy(function($val) {
             return Carbon::parse($val->created_at)->format('Y-m');
         })->map(function($monthSalesGroup, $key) {
@@ -77,6 +77,7 @@ class DashboardController extends Controller
                 'total_bs' => (float) $monthSalesGroup->sum('total_bs'),
                 'total_loss_usd' => $totalLossUsd,
                 'total_loss_bs' => (float) $monthSalesGroup->sum('change_loss_bs'),
+                'sales' => $monthSalesGroup->sortByDesc('created_at')->values(),
             ];
         })->sortByDesc('id')->values();
 
