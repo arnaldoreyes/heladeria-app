@@ -20,7 +20,7 @@ export default defineConfig({
                 short_name: 'Ice King',
                 description: 'Punto de Venta e Inventario',
                 theme_color: '#006a60',
-                background_color: '#ffffff',
+                background_color: '#1C7089',
                 display: 'standalone',
                 start_url: '/',
                 icons: [
