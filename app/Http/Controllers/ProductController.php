@@ -37,6 +37,7 @@ class ProductController extends Controller
 
         return inertia('Products/Index', [
             'products' => $products,
+            'categories' => \App\Models\Category::all(),
             'restockHistory' => $restockHistory // Pasamos la nueva data al Frontend
         ]);
     }

@@ -1,6 +1,6 @@
-# 🍦 Ice King Popsicle - Sistema POS e Inventario
+# 🍦 Ice King - Sistema POS e Inventario
 
-**Ice King Popsicle** es un sistema de Punto de Venta (POS), control de inventario y analítica contable diseñado específicamente para heladerías y negocios similares que operan en economías multimoneda (como la venezolana). La aplicación permite facturar en Dólares ($) y Bolívares (Bs.), adaptándose dinámicamente a la tasa de cambio oficial en tiempo real.
+**Ice King** es un sistema de Punto de Venta (POS), control de inventario y analítica contable diseñado específicamente para heladerías y negocios similares que operan en economías multimoneda (como la venezolana). La aplicación permite facturar en Dólares ($) y Bolívares (Bs.), adaptándose dinámicamente a la tasa de cambio oficial en tiempo real.
 
 ---
 
@@ -142,4 +142,4 @@ El sistema cuenta con comandos de consola útiles que se ejecutan automáticamen
 ---
 
 ## 🔒 Licencia
-Este software es privado y está protegido para el uso exclusivo del negocio **Ice King Popsicle**.
+Este software es privado y está protegido para el uso exclusivo del negocio **Ice King**.

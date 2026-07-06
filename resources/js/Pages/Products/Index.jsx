@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import CategoryManagerModal from '@/Components/CategoryManagerModal';
+import Dropdown from '@/Components/Dropdown';
 
-export default function Index({ auth, products, restockHistory = [] }) {
+export default function Index({ auth, products, categories = [], restockHistory = [] }) {
     const { tasa_bcv } = usePage().props;
     const tasaBCV = Number(tasa_bcv);
     const [editingId, setEditingId] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
     const [toast, setToast] = useState('');
 
@@ -30,6 +33,7 @@ export default function Index({ auth, products, restockHistory = [] }) {
 
     // --- BÚSQUEDA Y ORDENAMIENTO ---
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchActive, setIsSearchActive] = useState(false);
     const [sortBy, setSortBy] = useState(() => localStorage.getItem('ik_inventory_sort') || 'name_asc');
     const [showOutOfStock, setShowOutOfStock] = useState(() => localStorage.getItem('ik_inventory_show_out_of_stock') !== 'false');
 
@@ -153,6 +157,7 @@ export default function Index({ auth, products, restockHistory = [] }) {
             if (sA > 0 && sB <= 0) return -1;
             if (sA <= 0 && sB <= 0) return a.name.localeCompare(b.name);
             if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+            if (sortBy === 'category') return (a.category?.name || '').localeCompare(b.category?.name || '');
             if (sortBy === 'price_desc') return Number(b.price_usd) - Number(a.price_usd);
             if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
             if (sortBy === 'stock_desc') return sB - sA;
@@ -171,81 +176,110 @@ export default function Index({ auth, products, restockHistory = [] }) {
 
                 <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-margin-desktop py-6 md:py-8 relative">
 
-                    {/* ENCABEZADO Y BOTONES DE ACCIÓN (PUNTO 3 CORREGIDO: MÓVIL RESPONSIVE) */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 w-full border-b border-outline-variant/30 dark:border-dark-outline pb-6">
-                        <div>
-                            <h2 className="font-headline-lg text-headline-lg text-on-surface dark:text-white mb-1 font-bold tracking-tight">Gestión de Inventario</h2>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant dark:text-dark-on-surface-variant">Controla tu stock y registra compras.</p>
+                    {/* ENCABEZADO Y CONTROLES: RESPONSIVE, ESTRICTO Y CERO ESPACIOS VACÍOS */}
+                    <div className="flex flex-col lg:flex-row w-full gap-2 lg:gap-4 mb-6">
+                        {/* Bloque Izquierdo: Botones de Acción (Grid en móvil, Flex en escritorio) */}
+                        <div className={`grid grid-cols-4 lg:flex lg:flex-row gap-2 ${isSearchActive ? 'hidden lg:flex' : 'flex'}`}>
+                            <button onClick={() => setIsRestockHistorySidebarOpen(true)} className="group flex items-center justify-center gap-1 lg:gap-2 rounded-xl border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors bg-surface dark:bg-dark-surface h-[44px] lg:px-4">
+                                <span className="material-symbols-outlined text-[20px] lg:text-[18px]">history</span>
+                                <span className="hidden lg:inline text-xs font-black uppercase tracking-wider">Histórico</span>
+                            </button>
+                            <button onClick={() => setIsCategoryModalOpen(true)} className="group flex items-center justify-center gap-1 lg:gap-2 rounded-xl border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors bg-surface dark:bg-dark-surface h-[44px] lg:px-4">
+                                <span className="material-symbols-outlined text-[20px] lg:text-[18px]">category</span>
+                                <span className="hidden lg:inline text-xs font-black uppercase tracking-wider">Categorías</span>
+                            </button>
+                            <button onClick={() => setIsCreateModalOpen(true)} className="group flex items-center justify-center gap-1 lg:gap-2 rounded-xl border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors bg-surface dark:bg-dark-surface h-[44px] lg:px-4">
+                                <span className="material-symbols-outlined text-[20px] lg:text-[18px]">add</span>
+                                <span className="hidden lg:inline text-xs font-black uppercase tracking-wider">Producto</span>
+                            </button>
+                            <button onClick={() => setIsRestockModalOpen(true)} className="group flex items-center justify-center gap-1 lg:gap-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background hover:opacity-90 transition-all rounded-xl shadow-sm border dark:border-dark-primary/20 h-[44px] lg:px-4">
+                                <span className="material-symbols-outlined text-[20px] lg:text-[18px]">inventory_2</span>
+                                <span className="hidden lg:inline text-xs font-black uppercase tracking-wider">Reposición</span>
+                            </button>
                         </div>
 
-                        <div className="flex flex-row items-center justify-between md:justify-end gap-2 w-full md:w-auto">
-                            <button onClick={() => setIsRestockHistorySidebarOpen(true)} className="flex flex-1 md:flex-none items-center justify-center gap-1.5 px-3 md:px-4 h-[36px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-[10px] sm:text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface" title="Histórico">
-                                <span className="material-symbols-outlined text-[18px]">history</span>
-                                <span className="hidden sm:inline">Histórico</span>
-                            </button>
-                            <button onClick={() => setIsCreateModalOpen(true)} className="flex flex-1 md:flex-none items-center justify-center gap-1.5 px-3 md:px-4 h-[36px] rounded-lg border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant font-black text-[10px] sm:text-xs uppercase tracking-wider hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors shrink-0 bg-surface dark:bg-dark-surface" title="Nuevo Producto">
-                                <span className="material-symbols-outlined text-[18px]">add</span>
-                                <span className="hidden sm:inline">Producto</span>
-                            </button>
-                            <button onClick={() => setIsRestockModalOpen(true)} className="flex flex-1 md:flex-none items-center justify-center gap-1.5 px-3 md:px-4 h-[36px] bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background hover:opacity-90 transition-all rounded-lg shadow-sm font-black text-[10px] sm:text-xs uppercase tracking-wider shrink-0 border dark:border-dark-primary/20" title="Reposición">
-                                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-                                <span className="hidden sm:inline">Reposición</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 w-full px-1">
-                        <div className="flex items-center gap-3 w-full md:w-auto">
-                            {productosProcesados.length > 0 && (
-                                <button onClick={toggleAll} className="text-[10px] sm:text-xs font-black uppercase text-on-surface-variant dark:text-dark-on-surface-variant hover:text-primary dark:hover:text-dark-primary transition-colors flex items-center gap-1">
-                                    <span className={`material-symbols-outlined text-[18px] ${selectedIds.length > 0 ? 'text-primary' : ''}`}>{selectedIds.length > 0 ? 'check_box' : 'check_box_outline_blank'}</span>
-                                    {selectedIds.length > 0 ? 'Deseleccionar' : 'Seleccionar Todo'}
+                        {/* Bloque Búsqueda Central (Solo Escritorio): Llena el "Espacio Gigante" */}
+                        <div className="hidden lg:flex flex-1 relative items-center h-[44px] bg-surface dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl overflow-hidden transition-all shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+                            <span className="material-symbols-outlined absolute left-[12px] text-[22px] text-on-surface-variant dark:text-dark-on-surface-variant pointer-events-none">search</span>
+                            <input
+                                type="text"
+                                placeholder="Buscar producto..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full h-full pl-[44px] pr-[40px] bg-transparent border-none outline-none text-sm focus:ring-0 text-on-surface dark:text-dark-on-surface placeholder:text-on-surface-variant/70 dark:placeholder:text-dark-on-surface-variant/70 transition-colors"
+                            />
+                            {searchQuery && (
+                                <button onClick={() => setSearchQuery('')} className="absolute right-[8px] w-[28px] h-[28px] flex items-center justify-center rounded-lg hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors">
+                                    <span className="material-symbols-outlined text-[18px]">close</span>
                                 </button>
                             )}
                         </div>
 
-                        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                            <div className="relative w-full sm:w-64 h-8 border-b border-outline-variant/60 dark:border-dark-outline focus-within:border-primary dark:focus-within:border-dark-primary transition-colors">
-                                <span className="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-dark-on-surface-variant text-[18px]">search</span>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar helado..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full h-full pl-7 pr-4 bg-transparent border-none text-sm font-medium text-on-surface dark:text-white focus:ring-0 placeholder:text-on-surface-variant/50 px-0 outline-none"
-                                />
-                                {searchQuery && (
-                                    <button onClick={() => setSearchQuery('')} className="absolute right-0 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-error transition-colors flex items-center">
-                                        <span className="material-symbols-outlined text-[16px]">close</span>
+                        {/* Bloque Derecho: Filtros y Búsqueda Móvil */}
+                        <div className={`grid grid-cols-4 lg:flex lg:flex-row gap-2 w-full lg:w-auto`}>
+                            
+                            {/* MOBILE ACTIVE SEARCH */}
+                            {isSearchActive && (
+                                <div className="col-span-4 lg:hidden relative flex items-center w-full h-[44px] bg-surface dark:bg-dark-surface border border-primary dark:border-dark-primary rounded-xl overflow-hidden shadow-sm shadow-primary/10 ring-1 ring-primary/20">
+                                    <span className="material-symbols-outlined absolute left-[12px] text-[22px] text-primary pointer-events-none">search</span>
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        placeholder="Escribe para buscar..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-full pl-[44px] pr-[44px] bg-transparent border-none outline-none text-sm focus:ring-0 text-on-surface dark:text-dark-on-surface placeholder:text-on-surface-variant/70 transition-colors"
+                                    />
+                                    <button onClick={() => { setIsSearchActive(false); setSearchQuery(''); }} className="absolute right-[8px] w-[28px] h-[28px] flex items-center justify-center rounded-lg hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors">
+                                        <span className="material-symbols-outlined text-[18px]">close</span>
                                     </button>
+                                </div>
+                            )}
+
+                            {/* FILTROS (Visible siempre en Desktop, Ocultos en Mobile si Search está activo) */}
+                            <div className={`col-span-4 grid grid-cols-4 lg:flex lg:flex-row gap-2 ${isSearchActive ? 'hidden lg:flex' : 'flex'}`}>
+                                
+                                {/* Seleccionar Todo */}
+                                {productosProcesados.length > 0 ? (
+                                    <button onClick={toggleAll} className={`group relative flex items-center justify-center h-[44px] lg:w-[44px] rounded-xl border transition-colors ${selectedIds.length > 0 ? 'border-primary dark:border-dark-primary text-primary dark:text-dark-primary bg-primary/10 dark:bg-dark-primary/10' : 'border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant bg-surface dark:bg-dark-surface hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>
+                                        <span className="material-symbols-outlined text-[22px]">{selectedIds.length > 0 ? 'check_box' : 'check_box_outline_blank'}</span>
+                                        <span className="absolute hidden lg:block top-full mt-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none z-50 whitespace-nowrap">{selectedIds.length > 0 ? 'Deseleccionar' : 'Seleccionar Todo'}</span>
+                                    </button>
+                                ) : (
+                                    <div className="block lg:hidden"></div>
                                 )}
-                            </div>
 
-                            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                                <div className="flex items-center gap-2 border-b sm:border-none border-outline-variant/60 dark:border-dark-outline pb-2 sm:pb-0 w-full sm:w-auto justify-between sm:justify-start">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-dark-on-surface-variant whitespace-nowrap">Ocultar Agotados</span>
-                                    <button 
-                                        onClick={() => setShowOutOfStock(!showOutOfStock)}
-                                        className={`w-9 h-5 rounded-full flex items-center transition-colors shadow-inner border border-outline-variant/30 dark:border-dark-outline ${!showOutOfStock ? 'bg-primary dark:bg-dark-primary border-primary dark:border-dark-primary' : 'bg-surface-container-highest dark:bg-[#222]'}`}
-                                    >
-                                        <div className={`w-3.5 h-3.5 rounded-full bg-white dark:bg-dark-background mx-0.5 transition-transform shadow-sm ${!showOutOfStock ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                    </button>
+                                {/* Botón Activar Buscador (SOLO MÓVIL) */}
+                                <button onClick={() => setIsSearchActive(true)} className={`lg:hidden flex items-center justify-center h-[44px] rounded-xl border border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant bg-surface dark:bg-dark-surface hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors ${productosProcesados.length === 0 ? 'col-start-2' : ''}`}>
+                                    <span className="material-symbols-outlined text-[22px]">search</span>
+                                </button>
+
+                                {/* Ocultar Agotados */}
+                                <button onClick={() => setShowOutOfStock(!showOutOfStock)} className={`group relative flex items-center justify-center h-[44px] lg:w-[44px] rounded-xl border transition-colors ${!showOutOfStock ? 'border-primary dark:border-dark-primary text-primary dark:text-dark-primary bg-primary/10 dark:bg-dark-primary/10' : 'border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant bg-surface dark:bg-dark-surface hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>
+                                    <span className="material-symbols-outlined text-[22px]">{!showOutOfStock ? 'visibility_off' : 'visibility'}</span>
+                                    <span className="absolute hidden lg:block top-full mt-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none z-50 whitespace-nowrap">{!showOutOfStock ? "Mostrar Agotados" : "Ocultar Agotados"}</span>
+                                </button>
+
+                                {/* Ordenamiento (Fijado sin deformación) */}
+                                <div className="relative flex items-center justify-center h-[44px] lg:w-[44px] rounded-xl border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface hover:bg-surface-container-high dark:hover:bg-dark-surface-container transition-colors group">
+                                    <Dropdown>
+                                        <Dropdown.Trigger>
+                                            <div className="absolute inset-0 flex items-center justify-center w-full h-full cursor-pointer rounded-xl">
+                                                <span className="material-symbols-outlined text-[22px] text-on-surface-variant dark:text-dark-on-surface-variant group-hover:text-on-surface dark:group-hover:text-dark-on-surface">sort</span>
+                                            </div>
+                                        </Dropdown.Trigger>
+                                        <Dropdown.Content align="right" width="48" contentClasses="py-1 bg-surface dark:bg-dark-surface rounded-xl border border-outline-variant/50 dark:border-dark-outline/50 shadow-lg mt-12 z-50">
+                                            <button onClick={() => setSortBy('name_asc')} className={`block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${sortBy === 'name_asc' ? 'text-primary dark:text-dark-primary bg-primary/5' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>Alfabético</button>
+                                            <button onClick={() => setSortBy('category')} className={`block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors border-t border-outline-variant/10 ${sortBy === 'category' ? 'text-primary dark:text-dark-primary bg-primary/5' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>Categoría</button>
+                                            <button onClick={() => setSortBy('price_desc')} className={`block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors border-t border-outline-variant/10 ${sortBy === 'price_desc' ? 'text-primary dark:text-dark-primary bg-primary/5' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>Mayor Precio</button>
+                                            <button onClick={() => setSortBy('price_asc')} className={`block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors border-t border-outline-variant/10 ${sortBy === 'price_asc' ? 'text-primary dark:text-dark-primary bg-primary/5' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>Menor Precio</button>
+                                            <button onClick={() => setSortBy('stock_desc')} className={`block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors border-t border-outline-variant/10 ${sortBy === 'stock_desc' ? 'text-primary dark:text-dark-primary bg-primary/5' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>Mayor Stock</button>
+                                            <button onClick={() => setSortBy('stock_asc')} className={`block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors border-t border-outline-variant/10 ${sortBy === 'stock_asc' ? 'text-primary dark:text-dark-primary bg-primary/5' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>Menor Stock</button>
+                                        </Dropdown.Content>
+                                    </Dropdown>
+                                    <span className="absolute hidden lg:block top-full mt-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none z-50 whitespace-nowrap">Ordenar</span>
                                 </div>
 
-                                <div className="flex items-center gap-1 w-full sm:w-auto h-8 border-b border-outline-variant/60 dark:border-dark-outline focus-within:border-primary dark:focus-within:border-dark-primary transition-colors">
-                                    <span className="material-symbols-outlined text-on-surface-variant dark:text-dark-on-surface-variant text-[18px] pointer-events-none shrink-0">sort</span>
-                                    <select
-                                        value={sortBy}
-                                        onChange={(e) => setSortBy(e.target.value)}
-                                        className="w-full sm:w-auto bg-transparent border-none text-on-surface dark:text-white text-[11px] font-bold uppercase tracking-widest focus:ring-0 cursor-pointer outline-none pl-1 py-1"
-                                    >
-                                        <option value="name_asc">Alfabético</option>
-                                        <option value="price_desc">Mayor Precio</option>
-                                        <option value="price_asc">Menor Precio</option>
-                                        <option value="stock_desc">Mayor Stock</option>
-                                        <option value="stock_asc">Menor Stock</option>
-                                    </select>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -271,7 +305,7 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${isOutOfStock ? 'bg-error' : isLowStock ? 'bg-orange-500' : isSelected ? 'bg-primary dark:bg-dark-primary' : 'bg-transparent'}`}></div>
                                         <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative transition-colors border group ${isOutOfStock ? 'bg-surface-container-highest dark:bg-[#1f1f1f] border-error/20' : isLowStock ? 'bg-orange-50 dark:bg-[#2d1b0a] border-orange-500/20' : 'bg-blue-50 dark:bg-dark-background border-outline-variant/50 dark:border-dark-outline/50'}`}>
                                             <div className={`w-full h-full flex items-center justify-center ${isOutOfStock ? 'text-error/40' : isLowStock ? 'text-orange-400' : 'text-blue-400 dark:text-blue-500'}`}>
-                                                <span className="material-symbols-outlined opacity-80 text-[48px]">icecream</span>
+                                                <span className="material-symbols-outlined opacity-80 text-[48px]">{product.category?.icon || 'icecream'}</span>
                                             </div>
                                             <div className="absolute top-2 left-2 z-10">
                                                 <input type="checkbox" checked={isSelected} onChange={() => toggleSelection(product.id)} className="w-4 h-4 rounded border-outline-variant dark:border-dark-outline text-primary dark:text-dark-primary focus:ring-primary dark:focus:ring-dark-primary dark:bg-dark-background dark:checked:bg-dark-primary dark:checked:border-dark-primary cursor-pointer transition-colors" />
@@ -354,10 +388,6 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                 </h3>
                             </div>
                             <div className="flex items-center gap-2 md:gap-3">
-                                <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center justify-center gap-1 text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest bg-primary/10 px-2 py-1.5 md:px-3 md:py-1.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors">
-                                    <span className="material-symbols-outlined text-[16px]">add_circle</span>
-                                    <span className="hidden md:inline">Nuevo Producto</span>
-                                </button>
                                 {restockCart.length > 0 && (
                                     <button onClick={clearRestockCart} className="text-[10px] font-black uppercase tracking-widest text-error hover:text-error/80 transition-colors flex items-center justify-center gap-1 bg-error/10 px-2 py-1.5 md:px-3 md:py-1.5 rounded border border-error/20 hover:bg-error/20">
                                         <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
@@ -641,9 +671,19 @@ export default function Index({ auth, products, restockHistory = [] }) {
                             <button onClick={() => { setIsCreateModalOpen(false); reset(); }} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors"><span className="material-symbols-outlined">close</span></button>
                         </div>
                         <form onSubmit={submitCreate} className="flex flex-col gap-4 mt-4">
-                            <div>
-                                <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Sabor / Nombre</label>
-                                <input type="text" required value={data.name} onChange={e => setData('name', e.target.value)} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white transition-colors text-sm ${errors.name ? 'border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary'}`} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Sabor / Nombre</label>
+                                    <input type="text" required value={data.name} onChange={e => setData('name', e.target.value)} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white transition-colors text-sm ${errors.name ? 'border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary'}`} />
+                                </div>
+                                <div>
+                                    <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Categoría</label>
+                                    <select value={data.category_id} onChange={e => setData('category_id', e.target.value)} className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white transition-colors text-sm focus:border-primary">
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
@@ -687,9 +727,19 @@ export default function Index({ auth, products, restockHistory = [] }) {
                             </div>
 
                             <div className="flex flex-col gap-4 mt-2">
-                                <div className="flex flex-col">
-                                    <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Nombre</label>
-                                    <input id={`edit_name_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" type="text" defaultValue={product.name} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                                    <div className="flex flex-col">
+                                        <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Nombre</label>
+                                        <input id={`edit_name_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" type="text" defaultValue={product.name} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Categoría</label>
+                                        <select id={`edit_category_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" defaultValue={product.category_id || 1}>
+                                            {categories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-3 w-full">
                                     <div className="flex flex-col">
@@ -717,10 +767,11 @@ export default function Index({ auth, products, restockHistory = [] }) {
                                     <button onClick={() => setEditingId(null)} className="px-4 py-2 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all">Cancelar</button>
                                     <button onClick={() => {
                                         const newName = document.getElementById(`edit_name_${product.id}`).value;
+                                        const newCategory = document.getElementById(`edit_category_${product.id}`).value;
                                         const newStock = document.getElementById(`edit_stock_${product.id}`).value;
                                         const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
                                         const newPriceUsd = document.getElementById(`edit_price_usd_${product.id}`).value;
-                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: 1 }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
+                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: newCategory }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
                                     }} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 shadow-md">Guardar</button>
                                 </div>
                             </div>
@@ -728,6 +779,13 @@ export default function Index({ auth, products, restockHistory = [] }) {
                     </div>
                 );
             })()}
+
+            {/* Modal de Categorías */}
+            <CategoryManagerModal
+                isOpen={isCategoryModalOpen}
+                onClose={() => setIsCategoryModalOpen(false)}
+                categories={categories}
+            />
 
         </MainLayout>
     );

@@ -16,7 +16,7 @@ export default defineConfig({
             scope: '/',
             registerType: 'autoUpdate',
             manifest: {
-                name: 'Ice King Popsicle',
+                name: 'Ice King',
                 short_name: 'Ice King',
                 description: 'Punto de Venta e Inventario',
                 theme_color: '#006a60',

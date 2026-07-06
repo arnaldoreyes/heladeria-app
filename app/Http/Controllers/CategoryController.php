@@ -3,63 +3,56 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Product;
+use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        // Not used directly, passed via ProductController/PosController
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreCategoryRequest $request)
     {
-        //
+        Category::create($request->validated());
+        return back()->with('success', 'Categoría creada con éxito');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Category $category)
     {
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Category $category)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Category $category)
+    public function update(UpdateCategoryRequest $request, Category $category)
     {
-        //
+        $category->update($request->validated());
+        return back()->with('success', 'Categoría actualizada con éxito');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Category $category)
     {
-        //
+        // Prevenir eliminación de la categoría por defecto (Helado, ID 1)
+        if ($category->id === 1) {
+            return back()->withErrors(['error' => 'No se puede eliminar la categoría principal.']);
+        }
+
+        // Mover productos a la categoría principal para evitar orfandad
+        Product::where('category_id', $category->id)->update(['category_id' => 1]);
+
+        $category->delete();
+        return back()->with('success', 'Categoría eliminada con éxito');
     }
 }

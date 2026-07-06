@@ -51,6 +51,7 @@ class PosController extends Controller
 
         return Inertia::render('POS/Index', [
             'products' => $products,
+            'categories' => \App\Models\Category::all(),
             'editSaleData' => $editSaleData 
         ]);
     }

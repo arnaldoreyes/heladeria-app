@@ -6,7 +6,7 @@
         <meta name="theme-color" content="#006a60">
 
 
-        <title inertia>{{ config('app.name', 'Ice King Popsicle') }}</title>
+        <title inertia>{{ config('app.name', 'Ice King') }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

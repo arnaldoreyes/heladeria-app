@@ -55,7 +55,7 @@ export default function MainLayout({ children }) {
                                 crown
                             </span>
                             <span className="font-headline-sm font-bold text-primary dark:text-dark-primary hidden sm:block tracking-wide">
-                                Ice King Popsicle
+                                Ice King
                             </span>
                         </Link>
 

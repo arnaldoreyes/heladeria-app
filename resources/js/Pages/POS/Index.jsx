@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import CategoryFilter from '@/Components/CategoryFilter';
 
 // 1. Añadimos el prop editSaleData que viene del PosController
-export default function POS({ products, editSaleData = null }) {
+export default function POS({ products, categories = [], editSaleData = null }) {
     const { tasa_bcv } = usePage().props;
     const tasaBCV = Number(tasa_bcv);
 
@@ -14,6 +15,7 @@ export default function POS({ products, editSaleData = null }) {
     const [amountPaid, setAmountPaid] = useState('');
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState(null);
     const [sortBy, setSortBy] = useState(() => {
         return localStorage.getItem('ik_pos_sort') || 'name_asc';
     });
@@ -89,6 +91,10 @@ export default function POS({ products, editSaleData = null }) {
     const productosProcesados = useMemo(() => {
         let filtrados = [...products];
 
+        if (selectedCategory !== null) {
+            filtrados = filtrados.filter(p => p.category_id === selectedCategory);
+        }
+
         if (searchQuery.trim() !== '') {
             const lowerQuery = searchQuery.toLowerCase();
             filtrados = filtrados.filter(p =>
@@ -102,7 +108,7 @@ export default function POS({ products, editSaleData = null }) {
             if (sortBy === 'price_asc') return Number(a.price_usd) - Number(b.price_usd);
             return 0;
         });
-    }, [products, searchQuery, sortBy]);
+    }, [products, searchQuery, sortBy, selectedCategory]);
 
     const confirmSale = () => {
         if (paymentMethod === 'Efectivo') {
@@ -216,6 +222,12 @@ export default function POS({ products, editSaleData = null }) {
                         </div>
                     </div>
 
+                    <CategoryFilter
+                        categories={categories}
+                        selectedCategory={selectedCategory}
+                        onSelectCategory={setSelectedCategory}
+                    />
+
                     {productosProcesados.length === 0 ? (
                         <div className="text-center p-12 mt-8 border border-dashed border-outline-variant dark:border-dark-outline rounded-2xl bg-surface-container-lowest dark:bg-dark-background/40">
                             <span className="material-symbols-outlined text-[48px] text-on-surface-variant/50 dark:text-dark-on-surface-variant/50 mb-4 block">inventory_2</span>
@@ -240,7 +252,7 @@ export default function POS({ products, editSaleData = null }) {
                                     >
                                         <div className="w-full aspect-square rounded-lg bg-surface-container-highest dark:bg-dark-background mb-xs overflow-hidden relative transition-colors border dark:border-dark-outline/50">
                                             <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20 text-blue-400 dark:text-blue-500">
-                                                <span className="material-symbols-outlined opacity-80 text-[40px]">icecream</span>
+                                                <span className="material-symbols-outlined opacity-80 text-[40px]">{product.category?.icon || 'icecream'}</span>
                                             </div>
 
                                             {qty > 0 && (
@@ -280,6 +292,10 @@ export default function POS({ products, editSaleData = null }) {
                                             <div className="flex justify-between items-center mt-1 border-t border-outline-variant/30 dark:border-dark-outline pt-2 transition-colors">
                                                 <p className="font-label-md text-primary dark:text-dark-primary font-black tracking-tighter text-sm">${precioUSD}</p>
                                                 <p className="font-label-md text-on-surface dark:text-white font-black text-sm">{precioBs} <span className="text-[9px] font-normal uppercase opacity-70">Bs</span></p>
+                                            </div>
+                                            <div className="flex items-center gap-1 mt-1 text-on-surface-variant dark:text-dark-on-surface-variant opacity-80">
+                                                <span className="material-symbols-outlined text-[14px]">inventory</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{product.stock} disp.</span>
                                             </div>
 
                                         </div>

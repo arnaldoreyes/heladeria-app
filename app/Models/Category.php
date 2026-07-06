@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Category extends Model
 {
     // Permitir inserción masiva de estos campos
-    protected $fillable = ['name', 'description'];
+    protected $fillable = ['name', 'description', 'icon'];
 
     // Relación: Una categoría tiene muchos productos
     public function products(): HasMany
