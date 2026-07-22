@@ -18,6 +18,7 @@ class BulkUpdateProductRequest extends FormRequest
             'ids.*' => 'exists:products,id', // Buena práctica: valida que cada ID del array realmente exista
             'price_bs' => 'nullable|numeric|min:0',
             'price_usd' => 'nullable|numeric|min:0',
+            'cost_usd' => 'nullable|numeric|min:0',
             'stock' => 'nullable|integer|min:0',
         ];
     }

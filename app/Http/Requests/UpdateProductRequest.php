@@ -18,6 +18,7 @@ class UpdateProductRequest extends FormRequest
             'stock' => 'required|integer|min:0',
             'price_bs' => 'required|numeric|min:0',
             'price_usd' => 'required|numeric|min:0',
+            'cost_usd' => 'nullable|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
         ];
     }

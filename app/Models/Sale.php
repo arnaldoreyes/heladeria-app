@@ -12,6 +12,10 @@ class Sale extends Model
     protected $fillable = [
         'total_bs',
         'total_usd',
+        'cost_usd',
+        'margin_usd',
+        'reinvestment_usd',
+        'profit_usd',
         'discount_bs', 
         'tasa_bcv',
         'payment_method',

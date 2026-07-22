@@ -19,10 +19,14 @@ class FinanceController extends Controller
         $allRestocks = Restock::all();
 
         // 1. Resumen Global (Delegado a SQL)
-        $globalGross = Sale::sum('total_usd');
-        $globalLoss = Sale::where('tasa_bcv', '>', 0)->sum(DB::raw('change_loss_bs / tasa_bcv'));
+        $globalGross = (float) Sale::sum('total_usd');
+        $globalCost = (float) Sale::sum('cost_usd');
+        $globalMargin = (float) Sale::sum('margin_usd');
+        $globalReinvestment = (float) Sale::sum('reinvestment_usd');
+        $globalProfit = (float) Sale::sum('profit_usd');
+        $globalLoss = (float) Sale::where('tasa_bcv', '>', 0)->sum(DB::raw('change_loss_bs / tasa_bcv'));
         $globalSalesCount = Sale::count();
-        $globalRestock = Restock::sum('total_usd');
+        $globalRestock = (float) Restock::sum('total_usd');
 
         // Top 5 Productos optimizado por SQL
         $topProducts = \Illuminate\Support\Facades\DB::table('sale_items')
@@ -66,6 +70,11 @@ class FinanceController extends Controller
             $date = Carbon::createFromFormat('Y-m', $monthKey)->locale('es');
             
             $mTotalSales = (float) $mSales->sum('total_usd');
+            $mTotalCost = (float) $mSales->sum('cost_usd');
+            $mTotalMargin = (float) $mSales->sum('margin_usd');
+            $mTotalReinvestment = (float) $mSales->sum('reinvestment_usd');
+            $mTotalProfit = (float) $mSales->sum('profit_usd');
+
             $mTotalLoss = (float) $mSales->sum(function($s) {
                 return $s->tasa_bcv > 0 ? ($s->change_loss_bs / $s->tasa_bcv) : 0;
             });
@@ -75,9 +84,13 @@ class FinanceController extends Controller
                 'id' => $monthKey,
                 'month_name' => ucfirst($date->translatedFormat('F Y')),
                 'total_sales_usd' => $mTotalSales,
+                'total_cost_usd' => $mTotalCost,
+                'total_margin_usd' => $mTotalMargin,
+                'reinvestment_usd' => $mTotalReinvestment,
+                'profit_usd' => $mTotalProfit,
                 'total_loss_usd' => $mTotalLoss,
                 'sales_count' => $mSalesCount,
-                // NUEVO: Ticket Promedio y Porcentaje de Fuga
+                // Ticket Promedio y Porcentaje de Fuga
                 'average_ticket' => $mSalesCount > 0 ? ($mTotalSales / $mSalesCount) : 0,
                 'loss_percentage' => $mTotalSales > 0 ? (($mTotalLoss / $mTotalSales) * 100) : 0,
                 'best_week' => $bestWeek ? "Semana $bestWeek" : 'N/A',
@@ -90,6 +103,10 @@ class FinanceController extends Controller
         return Inertia::render('Finances/Index', [
             'global_stats' => [
                 'total_gross' => $globalGross,
+                'total_cost' => $globalCost,
+                'total_margin' => $globalMargin,
+                'total_reinvestment' => $globalReinvestment,
+                'total_profit' => $globalProfit,
                 'total_loss' => $globalLoss,
                 'total_restock' => $globalRestock,
                 'average_ticket' => $globalSalesCount > 0 ? ($globalGross / $globalSalesCount) : 0,

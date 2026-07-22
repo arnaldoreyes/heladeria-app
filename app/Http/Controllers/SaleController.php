@@ -23,15 +23,11 @@ class SaleController extends Controller
             $paymentMethod = $request->validated('payment_method');
             $changeLossBs = $request->validated('change_loss_bs');
 
-            // Creamos la venta ya con los datos finales
-            $sale = Sale::create([
-                'total_bs' => $totalBs, 
-                'total_usd' => $totalUsd,
-                'discount_bs' => $discountBs, 
-                'tasa_bcv' => $tasaBcv,
-                'payment_method' => $paymentMethod,
-                'change_loss_bs' => $changeLossBs,
-            ]);
+            $businessPercentage = (float) (\App\Models\Setting::where('key', 'business_percentage')->value('value') ?? 60);
+            $profitPercentage = (float) (\App\Models\Setting::where('key', 'profit_percentage')->value('value') ?? 40);
+
+            $totalCostUsd = 0;
+            $itemsToCreate = [];
 
             foreach ($request->validated('cart') as $item) {
                 $product = Product::lockForUpdate()->find($item['product']['id']);
@@ -41,15 +37,44 @@ class SaleController extends Controller
                 }
 
                 $precioRealBs = $product->price_usd * $tasaBcv;
+                $costoUsd = (float) ($product->cost_usd ?? 0);
+                $totalCostUsd += ($costoUsd * $item['quantity']);
 
+                $itemsToCreate[] = [
+                    'product' => $product,
+                    'quantity' => $item['quantity'],
+                    'price_bs' => $precioRealBs,
+                    'cost_usd' => $costoUsd,
+                ];
+            }
+
+            $marginUsd = max(0, $totalUsd - $totalCostUsd);
+            $reinvestmentUsd = $marginUsd * ($businessPercentage / 100);
+            $profitUsd = $marginUsd * ($profitPercentage / 100);
+
+            $sale = Sale::create([
+                'total_bs' => $totalBs, 
+                'total_usd' => $totalUsd,
+                'cost_usd' => $totalCostUsd,
+                'margin_usd' => $marginUsd,
+                'reinvestment_usd' => $reinvestmentUsd,
+                'profit_usd' => $profitUsd,
+                'discount_bs' => $discountBs, 
+                'tasa_bcv' => $tasaBcv,
+                'payment_method' => $paymentMethod,
+                'change_loss_bs' => $changeLossBs,
+            ]);
+
+            foreach ($itemsToCreate as $itemData) {
                 SaleItem::create([
                     'sale_id' => $sale->id,
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'price_bs' => $precioRealBs, 
+                    'product_id' => $itemData['product']->id,
+                    'quantity' => $itemData['quantity'],
+                    'price_bs' => $itemData['price_bs'],
+                    'cost_usd' => $itemData['cost_usd'],
                 ]);
 
-                $product->decrement('stock', $item['quantity']);
+                $itemData['product']->decrement('stock', $itemData['quantity']);
             }
 
             DB::commit();
@@ -73,17 +98,21 @@ class SaleController extends Controller
 
         try {
             // 2. Reversión del inventario original
-            // Bloqueamos los productos actuales para evitar lecturas sucias
             $currentItems = $sale->items()->with('product')->get();
             foreach ($currentItems as $item) {
                 if ($item->product) {
-                    // Devolvemos el stock original al inventario
                     Product::where('id', $item->product_id)->lockForUpdate()->increment('stock', $item->quantity);
                 }
             }
 
             // 3. Limpiar los ítems antiguos del ticket
             $sale->items()->delete();
+
+            $businessPercentage = (float) (\App\Models\Setting::where('key', 'business_percentage')->value('value') ?? 60);
+            $profitPercentage = (float) (\App\Models\Setting::where('key', 'profit_percentage')->value('value') ?? 40);
+
+            $totalCostUsd = 0;
+            $itemsToCreate = [];
 
             // 4. Procesar el nuevo carrito y descontar el nuevo inventario
             foreach ($request->validated('cart') as $cartItem) {
@@ -94,23 +123,42 @@ class SaleController extends Controller
                 }
 
                 $precioRealBs = $product->price_usd * $request->validated('tasa_bcv');
+                $costoUsd = (float) ($product->cost_usd ?? 0);
+                $totalCostUsd += ($costoUsd * $cartItem['quantity']);
 
-                // Crear el nuevo registro del ítem vendido
+                $itemsToCreate[] = [
+                    'product' => $product,
+                    'quantity' => $cartItem['quantity'],
+                    'price_bs' => $precioRealBs,
+                    'cost_usd' => $costoUsd,
+                ];
+            }
+
+            $totalUsd = $request->validated('total_usd');
+            $marginUsd = max(0, $totalUsd - $totalCostUsd);
+            $reinvestmentUsd = $marginUsd * ($businessPercentage / 100);
+            $profitUsd = $marginUsd * ($profitPercentage / 100);
+
+            foreach ($itemsToCreate as $itemData) {
                 SaleItem::create([
                     'sale_id' => $sale->id,
-                    'product_id' => $product->id,
-                    'quantity' => $cartItem['quantity'],
-                    'price_bs' => $precioRealBs, 
+                    'product_id' => $itemData['product']->id,
+                    'quantity' => $itemData['quantity'],
+                    'price_bs' => $itemData['price_bs'],
+                    'cost_usd' => $itemData['cost_usd'],
                 ]);
 
-                // Descontar el nuevo stock
-                $product->decrement('stock', $cartItem['quantity']);
+                $itemData['product']->decrement('stock', $itemData['quantity']);
             }
 
             // 5. Actualizar los totales del ticket principal
             $sale->update([
                 'total_bs' => $request->validated('total_bs'), 
-                'total_usd' => $request->validated('total_usd'),
+                'total_usd' => $totalUsd,
+                'cost_usd' => $totalCostUsd,
+                'margin_usd' => $marginUsd,
+                'reinvestment_usd' => $reinvestmentUsd,
+                'profit_usd' => $profitUsd,
                 'discount_bs' => $request->validated('discount_bs'), 
                 'tasa_bcv' => $request->validated('tasa_bcv'),
                 'payment_method' => $request->validated('payment_method'),

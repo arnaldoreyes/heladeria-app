@@ -3,14 +3,13 @@ import { Head, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 
 export default function Dashboard({
-    totalVentasBs, totalVentasUsd, cantidadVentas, ventasRecientes,
-    totalPerdidaBs = 0, totalPerdidaUsd = 0, topProductos = [],
-    monthlyHistory = [], totalHoyUsd, totalHoyBs // Agregamos los totales de hoy
+    totalVentasBs, totalVentasUsd, totalCostUsd = 0, totalMarginUsd = 0, totalReinvestmentUsd = 0, totalProfitUsd = 0,
+    cantidadVentas, ventasRecientes, totalPerdidaBs = 0, totalPerdidaUsd = 0, topProductos = [],
+    monthlyHistory = [], totalHoyUsd, totalHoyBs
 }) {
     // CAPTURAMOS LA CONFIGURACIÓN GLOBAL DESDE INERTIA
-    const { profit_percentage, business_percentage } = usePage().props;
-    const profitRatio = profit_percentage / 100;
-    const businessRatio = business_percentage / 100;
+    const { profit_percentage, business_percentage, tasa_bcv } = usePage().props;
+    const tasaBCV = Number(tasa_bcv || 1);
 
     const [selectedSale, setSelectedSale] = useState(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -37,7 +36,7 @@ export default function Dashboard({
 
     // --- FORMATEADORES ---
     const formatMoney = (amount) => {
-        return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+        return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
     };
 
     const formatTime = (dateString) => {
@@ -59,15 +58,15 @@ export default function Dashboard({
         return saleDate.toDateString() === today.toDateString();
     };
 
-    // --- MATEMÁTICA DEL NEGOCIO (DINÁMICA BASADA EN CONFIGURACIÓN) ---
-    const fondoNegocioUsd = totalVentasUsd * businessRatio;
-    const fondoNegocioBs = totalVentasBs * businessRatio;
+    // --- MATEMÁTICA DE LOS 3 FONDOS (REPOSICIÓN + MARGEN DISTRIBUIDO) ---
+    const fondoReposicionUsd = Number(totalCostUsd || 0);
+    const fondoReposicionBs = fondoReposicionUsd * tasaBCV;
 
-    const gananciaTeoricaUsd = totalVentasUsd * profitRatio;
-    const gananciaTeoricaBs = totalVentasBs * profitRatio;
+    const fondoReinversionUsd = Number(totalReinvestmentUsd || 0);
+    const fondoReinversionBs = fondoReinversionUsd * tasaBCV;
 
-    const gananciaRealUsd = Math.max(0, gananciaTeoricaUsd - totalPerdidaUsd);
-    const gananciaRealBs = Math.max(0, gananciaTeoricaBs - totalPerdidaBs);
+    const gananciaRealUsd = Math.max(0, Number(totalProfitUsd || 0) - Number(totalPerdidaUsd || 0));
+    const gananciaRealBs = gananciaRealUsd * tasaBCV;
 
     const paymentIcons = {
         'Efectivo': 'payments',
@@ -126,50 +125,61 @@ export default function Dashboard({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-outline-variant dark:divide-dark-outline">
+                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant dark:divide-dark-outline">
 
-                            <div className="p-6 md:p-8 flex flex-col relative group">
-                                <div className="absolute right-6 top-6 text-primary/5 dark:text-dark-primary/5 pointer-events-none">
-                                    <span className="material-symbols-outlined text-[80px]" style={{ fontVariationSettings: "'FILL' 1" }}>storefront</span>
-                                </div>
-                                <div className="flex flex-row justify-between items-start gap-2 mb-4 relative z-10">
-                                    <h3 className="font-label-lg text-primary dark:text-dark-primary font-black uppercase tracking-widest text-xs flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-[18px]">inventory</span>
-                                        Fondo de Negocio ({business_percentage}%)
+                            <div className="p-5 md:p-6 flex flex-col relative group">
+                                <div className="flex flex-row justify-between items-start gap-2 mb-3 relative z-10">
+                                    <h3 className="font-label-lg text-on-surface dark:text-dark-on-surface font-black uppercase tracking-widest text-xs flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[18px] text-blue-500">inventory_2</span>
+                                        Fondo Reposición
                                     </h3>
                                 </div>
                                 <div className="flex flex-col mt-auto relative z-10">
-                                    <span className="font-display-lg text-5xl font-black text-on-surface dark:text-white leading-none tracking-tighter">
-                                        ${formatMoney(fondoNegocioUsd)}
+                                    <span className="font-display-lg text-3xl lg:text-4xl font-black text-on-surface dark:text-white leading-none tracking-tighter">
+                                        ${formatMoney(fondoReposicionUsd)}
                                     </span>
-                                    <span className="text-sm font-black text-on-surface-variant dark:text-dark-on-surface-variant mt-2">
-                                        ~ {formatMoney(fondoNegocioBs)} Bs
+                                    <span className="text-xs font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-2">
+                                        ~ {formatMoney(fondoReposicionBs)} Bs
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="p-6 md:p-8 flex flex-col relative bg-primary/5 dark:bg-[#111810]">
-                                <div className="absolute right-6 top-6 text-primary/10 dark:text-dark-primary/10 pointer-events-none z-0">
-                                    <span className="material-symbols-outlined text-[80px]" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
+                            <div className="p-5 md:p-6 flex flex-col relative group">
+                                <div className="flex flex-row justify-between items-start gap-2 mb-3 relative z-10">
+                                    <h3 className="font-label-lg text-on-surface dark:text-dark-on-surface font-black uppercase tracking-widest text-xs flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[18px] text-indigo-500">domain_add</span>
+                                        Fondo Reinversión ({business_percentage}%)
+                                    </h3>
                                 </div>
-                                <div className="flex flex-row justify-between items-start gap-2 mb-4 relative z-10">
-                                    <h3 className="font-label-lg text-primary dark:text-dark-primary font-black uppercase tracking-widest text-xs flex items-center gap-2">
+                                <div className="flex flex-col mt-auto relative z-10">
+                                    <span className="font-display-lg text-3xl lg:text-4xl font-black text-on-surface dark:text-white leading-none tracking-tighter">
+                                        ${formatMoney(fondoReinversionUsd)}
+                                    </span>
+                                    <span className="text-xs font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-2">
+                                        ~ {formatMoney(fondoReinversionBs)} Bs
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="p-5 md:p-6 flex flex-col relative bg-primary/5 dark:bg-[#111810]">
+                                <div className="flex flex-row justify-between items-start gap-2 mb-3 relative z-10">
+                                    <h3 className="font-label-lg text-primary dark:text-dark-primary font-black uppercase tracking-widest text-xs flex items-center gap-1.5">
                                         <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                                        Tu Ganancia ({profit_percentage}%)
+                                        Ganancia Neta ({profit_percentage}%)
                                     </h3>
                                     {totalPerdidaUsd > 0 && (
-                                        <div className="shrink-0 bg-error/10 text-error px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 border border-error/20">
+                                        <div className="shrink-0 bg-error/10 text-error px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 border border-error/20">
                                             <span className="material-symbols-outlined text-[12px]">money_off</span>
-                                            -${formatMoney(totalPerdidaUsd)} Fugas
+                                            -${formatMoney(totalPerdidaUsd)}
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex flex-col mt-auto relative z-10">
-                                    <span className="font-display-lg text-5xl font-black text-primary dark:text-dark-primary leading-none tracking-tighter">
+                                    <span className="font-display-lg text-3xl lg:text-4xl font-black text-primary dark:text-dark-primary leading-none tracking-tighter">
                                         ${formatMoney(gananciaRealUsd)}
                                     </span>
-                                    <span className="text-sm font-black text-on-surface-variant dark:text-dark-on-surface-variant mt-2">
-                                        ~ {formatMoney(gananciaRealBs)} Bs <span className="opacity-60 text-xs font-medium uppercase tracking-widest ml-1">(A Transferir)</span>
+                                    <span className="text-xs font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-2">
+                                        ~ {formatMoney(gananciaRealBs)} Bs
                                     </span>
                                 </div>
                             </div>
@@ -387,25 +397,34 @@ export default function Dashboard({
 
                                 <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                     <div>
-                                        <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[12px]">inventory</span> Fondo ({business_percentage}%)
+                                        <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px] text-blue-500">inventory_2</span> Fondo Reposición
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * businessRatio)}</p>
-                                        <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * businessRatio)} Bs</p>
+                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_cost_usd)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
+                                    <div>
+                                        <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px] text-indigo-500">domain_add</span> Fondo Reinversión ({business_percentage}%)
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.reinvestment_usd)}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex justify-between items-center border-b border-outline-variant/30 dark:border-dark-outline/30 pb-3">
                                     <div>
                                         <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Tu Ganancia ({profit_percentage}%)
+                                            <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Ganancia Neta ({profit_percentage}%)
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-black text-on-surface dark:text-white text-sm">${formatMoney(selectedMonth.total_usd * profitRatio)}</p>
-                                        <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">/ {formatMoney(selectedMonth.total_bs * profitRatio)} Bs</p>
+                                        <p className="font-black text-primary dark:text-dark-primary text-sm">${formatMoney(selectedMonth.profit_usd)}</p>
                                     </div>
                                 </div>
 
@@ -559,16 +578,20 @@ export default function Dashboard({
                                 </div>
                             )}
 
-                            {/* Distribución del Ticket Específico */}
-                            <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
+                            {/* Distribución del Ticket Específico (3 Fondos) */}
+                            <div className="grid grid-cols-3 gap-2 mb-4 mt-2">
                                 <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Negocio ({business_percentage}%)</p>
-                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.total_usd * businessRatio)}</p>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Reposición</p>
+                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.cost_usd || 0)}</p>
+                                </div>
+                                <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Reinversión ({business_percentage}%)</p>
+                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.reinvestment_usd || 0)}</p>
                                 </div>
                                 <div className="bg-primary/10 dark:bg-dark-primary/10 p-2 rounded border border-primary/20 dark:border-dark-primary/20">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary dark:text-dark-primary mb-1">Tu Ganancia ({profit_percentage}%)</p>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary dark:text-dark-primary mb-1">Ganancia ({profit_percentage}%)</p>
                                     <p className="font-black text-xs text-primary dark:text-dark-primary">
-                                        ${formatMoney(Math.max(0, (selectedSale.total_usd * profitRatio) - (selectedSale.change_loss_bs / (selectedSale.tasa_bcv || 1))))}
+                                        ${formatMoney(Math.max(0, (selectedSale.profit_usd || 0) - ((selectedSale.change_loss_bs || 0) / (selectedSale.tasa_bcv || 1))))}
                                     </p>
                                 </div>
                             </div>

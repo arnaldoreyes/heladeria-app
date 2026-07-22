@@ -98,6 +98,10 @@ class ProductController extends Controller
             $data['price_bs'] = $request->price_bs;
             $data['price_usd'] = $request->price_usd;
         }
+
+        if ($request->filled('cost_usd')) {
+            $data['cost_usd'] = $request->cost_usd;
+        }
         
         if ($request->filled('stock')) {
             $data['stock'] = $request->stock;

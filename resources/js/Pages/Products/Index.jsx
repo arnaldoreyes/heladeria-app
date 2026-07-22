@@ -60,7 +60,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
 
     // --- CREAR NUEVO PRODUCTO ---
     const { data, setData, post, processing, reset, errors } = useForm({
-        name: '', stock: '', price_bs: '', price_usd: '', category_id: 1,
+        name: '', stock: '', price_bs: '', price_usd: '', cost_usd: '', category_id: 1,
     });
 
     const submitCreate = (e) => {
@@ -119,12 +119,14 @@ export default function Index({ auth, products, categories = [], restockHistory 
             ids: selectedIds,
             price_bs: bulkPriceBs !== '' ? bulkPriceBs : null,
             price_usd: bulkPriceUsd !== '' ? bulkPriceUsd : null,
+            cost_usd: bulkCostUsd !== '' ? bulkCostUsd : null,
             stock: bulkStock !== '' ? bulkStock : null
         }, {
             onSuccess: () => {
                 setSelectedIds([]);
                 setBulkPriceBs('');
                 setBulkPriceUsd('');
+                setBulkCostUsd('');
                 setBulkStock('');
                 setIsBulkEditModalOpen(false);
                 showToast('Actualizado masivamente!');
@@ -150,7 +152,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
             const query = searchQuery.toLowerCase();
             filtrados = filtrados.filter(p => p.name.toLowerCase().includes(query));
         }
-        
+
         return filtrados.sort((a, b) => {
             const sA = Number(a.stock), sB = Number(b.stock);
             if (sA <= 0 && sB > 0) return 1;
@@ -217,7 +219,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
 
                         {/* Bloque Derecho: Filtros y Búsqueda Móvil */}
                         <div className={`grid grid-cols-4 lg:flex lg:flex-row gap-2 w-full lg:w-auto`}>
-                            
+
                             {/* MOBILE ACTIVE SEARCH */}
                             {isSearchActive && (
                                 <div className="col-span-4 lg:hidden relative flex items-center w-full h-[44px] bg-surface dark:bg-dark-surface border border-primary dark:border-dark-primary rounded-xl overflow-hidden shadow-sm shadow-primary/10 ring-1 ring-primary/20">
@@ -238,7 +240,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
 
                             {/* FILTROS (Visible siempre en Desktop, Ocultos en Mobile si Search está activo) */}
                             <div className={`col-span-4 grid grid-cols-4 lg:flex lg:flex-row gap-2 ${isSearchActive ? 'hidden lg:flex' : 'flex'}`}>
-                                
+
                                 {/* Seleccionar Todo */}
                                 {productosProcesados.length > 0 ? (
                                     <button onClick={toggleAll} className={`group relative flex items-center justify-center h-[44px] lg:w-[44px] rounded-xl border transition-colors ${selectedIds.length > 0 ? 'border-primary dark:border-dark-primary text-primary dark:text-dark-primary bg-primary/10 dark:bg-dark-primary/10' : 'border-outline-variant dark:border-dark-outline text-on-surface-variant dark:text-dark-on-surface-variant bg-surface dark:bg-dark-surface hover:bg-surface-container-high dark:hover:bg-dark-surface-container'}`}>
@@ -295,9 +297,10 @@ export default function Index({ auth, products, categories = [], restockHistory 
                             {productosProcesados.map(product => {
                                 const currentStock = Number(product.stock);
                                 const isOutOfStock = currentStock === 0;
-                                const isLowStock = currentStock > 0 && currentStock <= 5;
+                                const isLowStock = currentStock > 0 && currentStock <= 2;
                                 const isSelected = selectedIds.includes(product.id);
                                 const precioUSD = Number(product.price_usd).toFixed(2);
+                                const costoUSD = Number(product.cost_usd || 0).toFixed(2);
                                 const precioBs = (Number(product.price_usd) * tasaBCV).toFixed(2);
 
                                 return (
@@ -328,7 +331,10 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                                 <span className={`text-sm font-bold leading-none ${isOutOfStock ? 'text-error' : isLowStock ? 'text-orange-500' : 'text-on-surface dark:text-white'}`}>{product.stock}</span>
                                             </div>
                                             <div className="flex flex-col mt-auto border-t border-outline-variant/30 dark:border-dark-outline pt-2">
-                                                <p className="font-label-md text-primary dark:text-dark-primary font-black tracking-tighter text-sm">${precioUSD}</p>
+                                                <div className="flex justify-between items-baseline">
+                                                    <p className="font-label-md text-primary dark:text-dark-primary font-black tracking-tighter text-sm">${precioUSD}</p>
+                                                    <p className="font-label-sm text-on-surface-variant dark:text-dark-on-surface-variant text-[9px] font-bold">Costo: ${costoUSD}</p>
+                                                </div>
                                                 <p className="font-label-sm text-on-surface-variant dark:text-dark-on-surface-variant font-bold text-[10px]">{precioBs} Bs</p>
                                             </div>
                                             <div className="flex md:hidden items-center gap-2 mt-3 pt-3 border-t border-outline-variant/30 dark:border-dark-outline">
@@ -620,9 +626,15 @@ export default function Index({ auth, products, categories = [], restockHistory 
                         </div>
                         <p className="text-xs text-on-surface-variant mb-4">Modifica precio o stock global para <strong className="text-on-surface dark:text-white">{selectedIds.length} items</strong>.</p>
                         <div className="flex flex-col gap-4">
-                            <div>
-                                <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Nuevo Stock</label>
-                                <input type="text" inputMode="numeric" value={bulkStock} onChange={e => setBulkStock(sanitizeInteger(e.target.value))} className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary" placeholder="En blanco = No cambiar" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Nuevo Stock</label>
+                                    <input type="text" inputMode="numeric" value={bulkStock} onChange={e => setBulkStock(sanitizeInteger(e.target.value))} className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary" placeholder="No cambiar" />
+                                </div>
+                                <div>
+                                    <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Nuevo Costo ($)</label>
+                                    <input type="text" inputMode="decimal" value={bulkCostUsd} onChange={e => setBulkCostUsd(sanitizeDecimal(e.target.value))} className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white font-black text-sm focus:border-primary" placeholder="0.00" />
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col justify-end">
@@ -656,8 +668,8 @@ export default function Index({ auth, products, categories = [], restockHistory 
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-6 border-t border-outline-variant dark:border-dark-outline pt-4">
-                            <button onClick={() => { setIsBulkEditModalOpen(false); setBulkPriceBs(''); setBulkPriceUsd(''); setBulkStock(''); }} className="px-4 py-2 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all">Cancelar</button>
-                            <button onClick={handleBulkEdit} disabled={!bulkPriceBs && !bulkPriceUsd && !bulkStock} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 disabled:opacity-50">Aplicar</button>
+                            <button onClick={() => { setIsBulkEditModalOpen(false); setBulkPriceBs(''); setBulkPriceUsd(''); setBulkCostUsd(''); setBulkStock(''); }} className="px-4 py-2 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all">Cancelar</button>
+                            <button onClick={handleBulkEdit} disabled={!bulkPriceBs && !bulkPriceUsd && !bulkCostUsd && !bulkStock} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 disabled:opacity-50">Aplicar</button>
                         </div>
                     </div>
                 </div>
@@ -685,10 +697,14 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                     </select>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div>
                                     <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Stock</label>
                                     <input type="text" inputMode="numeric" required value={data.stock} onChange={e => setData('stock', sanitizeInteger(e.target.value))} className={`w-full bg-surface-container dark:bg-dark-background border rounded-lg px-3 py-2 text-on-surface dark:text-white text-sm transition-colors ${errors.stock ? 'border-error' : 'border-outline-variant dark:border-dark-outline focus:border-primary'}`} />
+                                </div>
+                                <div>
+                                    <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Costo ($)</label>
+                                    <input type="text" inputMode="decimal" value={data.cost_usd} onChange={e => setData('cost_usd', sanitizeDecimal(e.target.value))} placeholder="0.00" className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white text-sm transition-colors focus:border-primary" />
                                 </div>
                                 <div>
                                     <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Precio (Bs)</label>
@@ -741,10 +757,14 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                         </select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-3 w-full">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
                                     <div className="flex flex-col">
                                         <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Stock</label>
                                         <input id={`edit_stock_${product.id}`} type="text" inputMode="numeric" className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full font-bold text-sm" defaultValue={product.stock} onChange={e => e.target.value = sanitizeInteger(e.target.value)} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Costo ($)</label>
+                                        <input id={`edit_cost_usd_${product.id}`} type="text" inputMode="decimal" className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full font-bold text-sm" defaultValue={product.cost_usd || ''} onChange={e => e.target.value = sanitizeDecimal(e.target.value)} />
                                     </div>
                                     <div className="flex flex-col">
                                         <label className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Precio Bs</label>
@@ -769,9 +789,10 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                         const newName = document.getElementById(`edit_name_${product.id}`).value;
                                         const newCategory = document.getElementById(`edit_category_${product.id}`).value;
                                         const newStock = document.getElementById(`edit_stock_${product.id}`).value;
+                                        const newCostUsd = document.getElementById(`edit_cost_usd_${product.id}`).value;
                                         const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
                                         const newPriceUsd = document.getElementById(`edit_price_usd_${product.id}`).value;
-                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: newCategory }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
+                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, cost_usd: newCostUsd, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: newCategory }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
                                     }} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 shadow-md">Guardar</button>
                                 </div>
                             </div>

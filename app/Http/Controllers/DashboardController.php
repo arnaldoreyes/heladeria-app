@@ -24,6 +24,10 @@ class DashboardController extends Controller
         // 2. Totales globales del MES (Para la tarjeta principal)
         $totalVentasBs = $monthSales->sum('total_bs');
         $totalVentasUsd = $monthSales->sum('total_usd');
+        $totalCostUsd = $monthSales->sum('cost_usd');
+        $totalMarginUsd = $monthSales->sum('margin_usd');
+        $totalReinvestmentUsd = $monthSales->sum('reinvestment_usd');
+        $totalProfitUsd = $monthSales->sum('profit_usd');
         $cantidadVentas = $monthSales->count();
 
         // 3. Control de fugas del MES
@@ -37,7 +41,7 @@ class DashboardController extends Controller
         $totalHoyUsd = $todaySales->sum('total_usd');
         $totalHoyBs = $todaySales->sum('total_bs');
         
-        // Ventas Recientes ahora muestra estrictamente lo de HOY
+        // Ventas Recientes ahora muestra strictly lo de HOY
         $ventasRecientes = Sale::with('items.product')
             ->whereDate('created_at', $today)
             ->latest()
@@ -75,6 +79,10 @@ class DashboardController extends Controller
                 'sales_count' => $monthSalesGroup->count(),
                 'total_usd' => (float) $monthSalesGroup->sum('total_usd'),
                 'total_bs' => (float) $monthSalesGroup->sum('total_bs'),
+                'total_cost_usd' => (float) $monthSalesGroup->sum('cost_usd'),
+                'total_margin_usd' => (float) $monthSalesGroup->sum('margin_usd'),
+                'reinvestment_usd' => (float) $monthSalesGroup->sum('reinvestment_usd'),
+                'profit_usd' => (float) $monthSalesGroup->sum('profit_usd'),
                 'total_loss_usd' => $totalLossUsd,
                 'total_loss_bs' => (float) $monthSalesGroup->sum('change_loss_bs'),
                 'sales' => $monthSalesGroup->sortByDesc('created_at')->values(),
@@ -84,6 +92,10 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'totalVentasBs' => $totalVentasBs,
             'totalVentasUsd' => $totalVentasUsd,
+            'totalCostUsd' => $totalCostUsd,
+            'totalMarginUsd' => $totalMarginUsd,
+            'totalReinvestmentUsd' => $totalReinvestmentUsd,
+            'totalProfitUsd' => $totalProfitUsd,
             'cantidadVentas' => $cantidadVentas,
             'totalHoyUsd' => $totalHoyUsd,
             'totalHoyBs' => $totalHoyBs,

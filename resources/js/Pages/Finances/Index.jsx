@@ -64,32 +64,38 @@ export default function Finances({ analytics, history, global_stats }) {
                     </h1>
                 </div>
 
-                {/* NUEVO: KPIs GLOBALES HISTÓRICOS */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* NUEVO: KPIs GLOBALES HISTÓRICOS (3 FONDOS + INGRESO + FUGAS) */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-outline-variant/30 dark:border-dark-outline shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">monetization_on</span> Ingreso Total
                         </p>
-                        <p className="text-xl lg:text-2xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_gross)}</p>
+                        <p className="text-lg lg:text-xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_gross)}</p>
                     </div>
                     <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-outline-variant/30 dark:border-dark-outline shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">inventory</span> Fondo ({business_percentage}%)
+                            <span className="material-symbols-outlined text-[14px] text-blue-500">inventory_2</span> Reposición
                         </p>
-                        <p className="text-xl lg:text-2xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_gross * businessRatio)}</p>
+                        <p className="text-lg lg:text-xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_cost)}</p>
+                    </div>
+                    <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-outline-variant/30 dark:border-dark-outline shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px] text-indigo-500">domain_add</span> Reinversión ({business_percentage}%)
+                        </p>
+                        <p className="text-lg lg:text-xl font-black text-on-surface dark:text-white mt-1">${formatMoney(global_stats.total_reinvestment)}</p>
                     </div>
                     <div className="bg-primary/5 dark:bg-dark-primary/10 p-4 rounded-xl border border-primary/20 dark:border-dark-primary/30 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-primary dark:text-dark-primary flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span> Ganancia ({profit_percentage}%)
                         </p>
-                        <p className="text-xl lg:text-2xl font-black text-primary dark:text-dark-primary mt-1">${formatMoney(Math.max(0, (global_stats.total_gross * profitRatio) - global_stats.total_loss))}</p>
+                        <p className="text-lg lg:text-xl font-black text-primary dark:text-dark-primary mt-1">${formatMoney(Math.max(0, (global_stats.total_profit || 0) - global_stats.total_loss))}</p>
                     </div>
                     <div className="bg-surface-container-low dark:bg-[#111111] p-4 rounded-xl border border-error/30 dark:border-error/30 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-error flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">money_off</span> Fugas
                         </p>
-                        <p className="text-xl lg:text-2xl font-black text-error mt-1">-${formatMoney(global_stats.total_loss)}</p>
+                        <p className="text-lg lg:text-xl font-black text-error mt-1">-${formatMoney(global_stats.total_loss)}</p>
                     </div>
                 </div>
 
@@ -153,12 +159,14 @@ export default function Finances({ analytics, history, global_stats }) {
                             </div>
                         ) : (
                             history.map(month => {
-                                const fondoUsd = month.total_sales_usd * businessRatio;
-                                const gananciaUsd = Math.max(0, (month.total_sales_usd * profitRatio) - month.total_loss_usd);
+                                const fondoReposicionUsd = month.total_cost_usd || 0;
+                                const fondoReinversionUsd = month.reinvestment_usd || 0;
+                                const gananciaUsd = Math.max(0, (month.profit_usd || 0) - month.total_loss_usd);
 
                                 // Cálculos para la barra visual (si hay ventas)
                                 const totalBars = month.total_sales_usd || 1;
-                                const pctBusiness = (fondoUsd / totalBars) * 100;
+                                const pctCost = (fondoReposicionUsd / totalBars) * 100;
+                                const pctReinvestment = (fondoReinversionUsd / totalBars) * 100;
                                 const pctProfit = (gananciaUsd / totalBars) * 100;
                                 const pctLoss = (month.total_loss_usd / totalBars) * 100;
 
@@ -185,34 +193,42 @@ export default function Finances({ analytics, history, global_stats }) {
                                             </button>
                                         </div>
 
-                                        {/* DATOS FINANCIEROS */}
-                                        <div className="p-5 grid grid-cols-2 gap-y-6 gap-x-4">
-                                            <div>
-                                                <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">monetization_on</span> Ingreso Bruto</p>
-                                                <p className="font-black text-xl lg:text-2xl text-on-surface dark:text-white leading-none">${formatMoney(month.total_sales_usd)}</p>
-                                                <p className="text-[11px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant mt-1.5">Promedio: ${formatMoney(month.average_ticket)}</p>
+                                        {/* DATOS FINANCIEROS (3 FONDOS DESGLOSADOS) */}
+                                        <div className="p-5 grid grid-cols-3 gap-y-4 gap-x-3">
+                                            <div className="col-span-3 pb-2 border-b border-outline-variant/20 dark:border-dark-outline/30 flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">monetization_on</span> Ingreso Bruto</p>
+                                                    <p className="font-black text-xl lg:text-2xl text-on-surface dark:text-white leading-none mt-1">${formatMoney(month.total_sales_usd)}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant">Ticket Promedio: ${formatMoney(month.average_ticket)}</p>
+                                                </div>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">inventory</span> Fondo ({business_percentage}%)</p>
-                                                <p className="font-black text-lg lg:text-xl text-on-surface dark:text-gray-300 leading-none">${formatMoney(fondoUsd)}</p>
+                                                <p className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[12px] text-blue-500">inventory_2</span> Reposición</p>
+                                                <p className="font-black text-base lg:text-lg text-on-surface dark:text-gray-200 leading-none">${formatMoney(fondoReposicionUsd)}</p>
                                             </div>
-                                            <div className="bg-primary/5 dark:bg-dark-primary/10 p-3 rounded-xl border border-primary/10 dark:border-dark-primary/20">
-                                                <p className="text-[10px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">account_balance_wallet</span> Ganancia</p>
-                                                <p className="font-black text-xl lg:text-2xl text-primary dark:text-dark-primary leading-none">${formatMoney(gananciaUsd)}</p>
+                                            <div>
+                                                <p className="text-[9px] font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[12px] text-indigo-500">domain_add</span> Reinversión ({business_percentage}%)</p>
+                                                <p className="font-black text-base lg:text-lg text-on-surface dark:text-gray-200 leading-none">${formatMoney(fondoReinversionUsd)}</p>
                                             </div>
-                                            <div className="flex flex-col justify-center">
-                                                <p className="text-[10px] font-black text-error uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">money_off</span> Fugas</p>
-                                                <p className="font-black text-lg lg:text-xl text-error leading-none">-${formatMoney(month.total_loss_usd)}</p>
-                                                {month.total_loss_usd > 0 && (
-                                                    <p className="text-[10px] font-bold text-error mt-1.5 opacity-80">{month.loss_percentage.toFixed(1)}% del ingreso</p>
-                                                )}
+                                            <div className="bg-primary/5 dark:bg-dark-primary/10 p-2 rounded-lg border border-primary/10 dark:border-dark-primary/20">
+                                                <p className="text-[9px] font-black text-primary dark:text-dark-primary uppercase tracking-widest mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">account_balance_wallet</span> Ganancia</p>
+                                                <p className="font-black text-base lg:text-lg text-primary dark:text-dark-primary leading-none">${formatMoney(gananciaUsd)}</p>
                                             </div>
+                                            {month.total_loss_usd > 0 && (
+                                                <div className="col-span-3 pt-2 flex items-center justify-between border-t border-outline-variant/20 dark:border-dark-outline/30">
+                                                    <p className="text-[10px] font-black text-error uppercase tracking-widest flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">money_off</span> Pérdidas por Fuga</p>
+                                                    <p className="font-black text-sm text-error">-${formatMoney(month.total_loss_usd)} <span className="text-[10px] opacity-80">({month.loss_percentage.toFixed(1)}%)</span></p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Barra visual de distribución del dinero */}
                                         {month.total_sales_usd > 0 && (
                                             <div className="h-1.5 w-full flex bg-surface-container-highest dark:bg-dark-outline mt-auto">
-                                                <div style={{ width: `${pctBusiness}%` }} className="bg-on-surface-variant dark:bg-gray-500" title="Negocio"></div>
+                                                <div style={{ width: `${pctCost}%` }} className="bg-blue-500" title="Reposición"></div>
+                                                <div style={{ width: `${pctReinvestment}%` }} className="bg-indigo-500" title="Reinversión"></div>
                                                 <div style={{ width: `${pctProfit}%` }} className="bg-primary dark:bg-dark-primary" title="Ganancia"></div>
                                                 <div style={{ width: `${pctLoss}%` }} className="bg-error" title="Fuga"></div>
                                             </div>
