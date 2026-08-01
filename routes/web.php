@@ -28,6 +28,7 @@ Route::resource('products', ProductController::class);
 Route::controller(SaleController::class)->prefix('sales')->name('sales.')->group(function () {
     Route::post('/', 'store')->name('store');
     Route::put('/{sale}', 'update')->name('update');
+    Route::delete('/{sale}', 'destroy')->name('destroy');
 });
 
 // Modulo de Configuracion

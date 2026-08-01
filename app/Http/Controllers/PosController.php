@@ -49,9 +49,13 @@ class PosController extends Controller
         // Ejecutamos la consulta
         $products = $productsQuery->get();
 
+        $categories = \Illuminate\Support\Facades\Cache::remember('categories.all', 3600, function () {
+            return \App\Models\Category::all()->values();
+        });
+
         return Inertia::render('POS/Index', [
             'products' => $products,
-            'categories' => \App\Models\Category::all(),
+            'categories' => $categories,
             'editSaleData' => $editSaleData 
         ]);
     }

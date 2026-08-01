@@ -20,25 +20,39 @@ class ProductController extends Controller
     {
         $products = Product::with('category')->latest()->get();
         
-        $allRestocks = Restock::with('items.product')->latest()->get();
-        $restockHistory = $allRestocks->groupBy(function($val) {
-            return Carbon::parse($val->created_at)->format('Y-m');
-        })->map(function($monthRestocks, $key) {
-            $date = Carbon::createFromFormat('Y-m', $key)->locale('es');
+        $restockHistoryRows = Restock::select(
+            DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month_key"),
+            DB::raw("COUNT(*) as restocks_count"),
+            DB::raw("COALESCE(SUM(total_usd), 0) as total_usd"),
+            DB::raw("COALESCE(SUM(total_bs), 0) as total_bs")
+        )
+        ->groupBy('month_key')
+        ->orderByDesc('month_key')
+        ->get();
+
+        $restockHistory = $restockHistoryRows->map(function($row) {
+            $date = Carbon::createFromFormat('Y-m', $row->month_key)->locale('es');
             return [
-                'id' => $key,
+                'id' => $row->month_key,
                 'month_name' => ucfirst($date->translatedFormat('F Y')),
-                'restocks_count' => $monthRestocks->count(),
-                'total_usd' => (float) $monthRestocks->sum('total_usd'),
-                'total_bs' => (float) $monthRestocks->sum('total_bs'),
-                'restocks' => $monthRestocks
+                'restocks_count' => (int) $row->restocks_count,
+                'total_usd' => (float) $row->total_usd,
+                'total_bs' => (float) $row->total_bs,
+                'restocks' => Restock::with('items.product')
+                    ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$row->month_key])
+                    ->latest()
+                    ->get()
             ];
-        })->sortByDesc('id')->values();
+        })->values();
+
+        $categories = \Illuminate\Support\Facades\Cache::remember('categories.all', 3600, function () {
+            return \App\Models\Category::all()->values();
+        });
 
         return inertia('Products/Index', [
             'products' => $products,
-            'categories' => \App\Models\Category::all(),
-            'restockHistory' => $restockHistory // Pasamos la nueva data al Frontend
+            'categories' => $categories,
+            'restockHistory' => $restockHistory
         ]);
     }
 
@@ -120,6 +134,9 @@ class ProductController extends Controller
             'total_usd' => 'required|numeric|min:0',
             'total_bs' => 'required|numeric|min:0',
             'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.cost_usd' => 'nullable|numeric|min:0',
         ]);
 
         DB::transaction(function () use ($request) {
@@ -129,7 +146,7 @@ class ProductController extends Controller
                 'total_bs' => $request->total_bs,
             ]);
 
-            // 2. Guardar el detalle y aumentar el stock
+            // 2. Guardar el detalle, aumentar el stock y actualizar costo al mayor si cambió
             foreach ($request->items as $item) {
                 RestockItem::create([
                     'restock_id' => $restock->id,
@@ -139,7 +156,11 @@ class ProductController extends Controller
 
                 $product = Product::find($item['product_id']);
                 if ($product) {
-                    $product->increment('stock', $item['quantity']);
+                    $updateData = [];
+                    if (isset($item['cost_usd']) && is_numeric($item['cost_usd']) && $item['cost_usd'] >= 0) {
+                        $updateData['cost_usd'] = $item['cost_usd'];
+                    }
+                    $product->increment('stock', $item['quantity'], $updateData);
                 }
             }
         });

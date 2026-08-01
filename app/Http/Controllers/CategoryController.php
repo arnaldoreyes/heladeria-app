@@ -23,6 +23,7 @@ class CategoryController extends Controller
     public function store(StoreCategoryRequest $request)
     {
         Category::create($request->validated());
+        \Illuminate\Support\Facades\Cache::forget('categories.all');
         return back()->with('success', 'Categoría creada con éxito');
     }
 
@@ -39,6 +40,7 @@ class CategoryController extends Controller
     public function update(UpdateCategoryRequest $request, Category $category)
     {
         $category->update($request->validated());
+        \Illuminate\Support\Facades\Cache::forget('categories.all');
         return back()->with('success', 'Categoría actualizada con éxito');
     }
 
@@ -53,6 +55,7 @@ class CategoryController extends Controller
         Product::where('category_id', $category->id)->update(['category_id' => 1]);
 
         $category->delete();
+        \Illuminate\Support\Facades\Cache::forget('categories.all');
         return back()->with('success', 'Categoría eliminada con éxito');
     }
 }

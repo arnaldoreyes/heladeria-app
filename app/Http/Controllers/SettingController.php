@@ -15,7 +15,11 @@ class SettingController extends Controller
     {
         $settings = Setting::pluck('value', 'key')->toArray();
 
-        // Valores por defecto si la base de datos está vacía
+        $liveRate = $settings['bcv_latest_scraped_rate'] ?? ($settings['last_bcv_rate'] ?? 1);
+        $liveDate = $settings['bcv_latest_scraped_date'] ?? null;
+        $nextRate = $settings['bcv_next_rate'] ?? null;
+        $nextDate = $settings['bcv_next_date'] ?? null;
+
         return Inertia::render('Settings/Index', [
             'config' => [
                 'bcv_mode' => $settings['bcv_mode'] ?? 'auto',
@@ -23,6 +27,10 @@ class SettingController extends Controller
                 'profit_percentage' => $settings['profit_percentage'] ?? '40',
                 'business_percentage' => $settings['business_percentage'] ?? '60',
                 'last_bcv_rate' => $settings['last_bcv_rate'] ?? 1,
+                'live_bcv_rate' => $liveRate,
+                'live_bcv_date' => $liveDate,
+                'bcv_next_rate' => $nextRate,
+                'bcv_next_date' => $nextDate,
             ]
         ]);
     }

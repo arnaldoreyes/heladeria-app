@@ -7,6 +7,9 @@ import Dropdown from '@/Components/Dropdown';
 export default function Index({ auth, products, categories = [], restockHistory = [] }) {
     const { tasa_bcv } = usePage().props;
     const tasaBCV = Number(tasa_bcv);
+
+    const catsList = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
+
     const [editingId, setEditingId] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -21,11 +24,31 @@ export default function Index({ auth, products, categories = [], restockHistory 
     const [bulkPriceUsd, setBulkPriceUsd] = useState('');
     const [bulkStock, setBulkStock] = useState('');
 
-    // --- ESTADOS DE NUEVA REPOSICIÓN (CARRITO INVERTIDO) ---
+    // --- ESTADOS DE NUEVA REPOSICIÓN (CARRITO INVERTIDO & ESTIMACIÓN DUAL) ---
     const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+    const [isConfirmMode, setIsConfirmMode] = useState(false); // false: Borrador / Estimación, true: Confirmar Factura
+    const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+    const [restockSearch, setRestockSearch] = useState('');
     const [restockCart, setRestockCart] = useState([]);
     const [restockTotalUsd, setRestockTotalUsd] = useState('');
     const [restockTotalBs, setRestockTotalBs] = useState('');
+
+    // --- FORMULARIO RÁPIDO PARA CREAR PRODUCTO DESDE REPOSICIÓN ---
+    const { data: quickData, setData: setQuickData, post: postQuick, processing: processingQuick, reset: resetQuick, errors: errorsQuick } = useForm({
+        name: '', stock: 0, price_bs: '', price_usd: '', cost_usd: '', cost_bs: '', category_id: catsList.length > 0 ? catsList[0].id : 1,
+    });
+
+    const submitQuickCreate = (e) => {
+        e.preventDefault();
+        postQuick(route('products.store'), {
+            onSuccess: (page) => {
+                setIsQuickCreateOpen(false);
+                const costVal = quickData.cost_usd || '0';
+                showToast('¡Producto registrado exitosamente!');
+                resetQuick();
+            }
+        });
+    };
 
     // --- ESTADOS DE HISTÓRICO DE REPOSICIONES ---
     const [isRestockHistorySidebarOpen, setIsRestockHistorySidebarOpen] = useState(false);
@@ -39,6 +62,27 @@ export default function Index({ auth, products, categories = [], restockHistory 
 
     useEffect(() => localStorage.setItem('ik_inventory_sort', sortBy), [sortBy]);
     useEffect(() => localStorage.setItem('ik_inventory_show_out_of_stock', showOutOfStock), [showOutOfStock]);
+
+    // --- ESCAPE KEYLISTENER PARA CERRAR CUALQUIER MODAL ABIERTO ---
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (isCategoryModalOpen) setIsCategoryModalOpen(false);
+                else if (productToDelete) setProductToDelete(null);
+                else if (editingId) setEditingId(null);
+                else if (isCreateModalOpen) setIsCreateModalOpen(false);
+                else if (isBulkEditModalOpen) setIsBulkEditModalOpen(false);
+                else if (isBulkDeleteModalOpen) setIsBulkDeleteModalOpen(false);
+                else if (isRestockModalOpen) setIsRestockModalOpen(false);
+                else if (isRestockHistorySidebarOpen) setIsRestockHistorySidebarOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+        isCategoryModalOpen, productToDelete, editingId, isCreateModalOpen,
+        isBulkEditModalOpen, isBulkDeleteModalOpen, isRestockModalOpen, isRestockHistorySidebarOpen
+    ]);
 
     const showToast = (message) => {
         setToast(message);
@@ -58,7 +102,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
 
     const sanitizeInteger = (val) => String(val).replace(/\D/g, '');
 
-    // --- CREAR NUEVO PRODUCTO ---
+    // --- CREAR NUEVO PRODUCTO (MODAL GLOBAL) ---
     const { data, setData, post, processing, reset, errors } = useForm({
         name: '', stock: '', price_bs: '', price_usd: '', cost_usd: '', category_id: 1,
     });
@@ -74,8 +118,11 @@ export default function Index({ auth, products, categories = [], restockHistory 
     const addToRestock = (product) => {
         setRestockCart(prev => {
             const existing = prev.find(i => i.product.id === product.id);
-            if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-            return [...prev, { product, quantity: 1 }];
+            if (existing) {
+                return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+            }
+            const defaultCost = (product.cost_usd !== undefined && product.cost_usd !== null) ? String(product.cost_usd) : '0';
+            return [...prev, { product, quantity: 1, cost_usd: defaultCost }];
         });
     };
 
@@ -88,24 +135,56 @@ export default function Index({ auth, products, categories = [], restockHistory 
         setRestockCart(prev => prev.map(i => i.product.id === id ? { ...i, quantity: qty } : i));
     };
 
+    const updateRestockCost = (id, newCost) => {
+        setRestockCart(prev => prev.map(i => i.product.id === id ? { ...i, cost_usd: newCost } : i));
+    };
+
     const removeFromRestock = (id) => setRestockCart(prev => prev.filter(i => i.product.id !== id));
 
     const clearRestockCart = () => {
         setRestockCart([]);
         setRestockTotalUsd('');
         setRestockTotalBs('');
+        setIsConfirmMode(false);
     };
 
+    // Recálculo automático de totales estimados en USD y Bs
+    useEffect(() => {
+        if (!isRestockModalOpen) return;
+        if (restockCart.length === 0) {
+            setRestockTotalUsd('');
+            setRestockTotalBs('');
+            return;
+        }
+        const totalUsdCalc = restockCart.reduce((sum, item) => {
+            const qty = Number(item.quantity) || 0;
+            const cost = Number(item.cost_usd) || 0;
+            return sum + (qty * cost);
+        }, 0);
+
+        setRestockTotalUsd(totalUsdCalc.toFixed(2));
+        setRestockTotalBs((totalUsdCalc * tasaBCV).toFixed(2));
+    }, [restockCart, tasaBCV, isRestockModalOpen]);
+
     const submitRestock = () => {
+        if (!isConfirmMode) {
+            showToast('Activa el modo "Confirmar Factura" para guardar');
+            return;
+        }
+
         router.post(route('products.restock'), {
             total_usd: restockTotalUsd || 0,
             total_bs: restockTotalBs || 0,
-            items: restockCart.map(i => ({ product_id: i.product.id, quantity: i.quantity }))
+            items: restockCart.map(i => ({
+                product_id: i.product.id,
+                quantity: i.quantity,
+                cost_usd: i.cost_usd !== '' ? Number(i.cost_usd) : null
+            }))
         }, {
             onSuccess: () => {
                 setIsRestockModalOpen(false);
                 clearRestockCart();
-                showToast('¡Inventario repuesto con éxito!');
+                showToast('¡Factura de reposición guardada e inventario actualizado!');
             }
         });
     };
@@ -380,28 +459,67 @@ export default function Index({ auth, products, categories = [], restockHistory 
                 NUEVOS MODALES: REPOSICIÓN DE INVENTARIO Y SU HISTÓRICO
             ========================================================= */}
 
-            {/* MODAL: CARRITO INVERTIDO PARA REPOSICIÓN REDISEÑADO */}
+            {/* MODAL: REPOSICIÓN DE INVENTARIO CON ESTIMACIÓN DUAL Y CREACIÓN RÁPIDA */}
             {isRestockModalOpen && (
-                <div className="fixed inset-0 bg-black/90 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-fade-in transition-all">
-                    <div className="bg-surface-container-lowest dark:bg-dark-surface w-full h-full md:h-[90vh] md:max-w-4xl shadow-2xl border dark:border-dark-outline flex flex-col overflow-hidden md:rounded-xl">
+                <div
+                    onClick={(e) => { if (e.target === e.currentTarget) setIsRestockModalOpen(false); }}
+                    className="fixed inset-0 bg-black/90 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-fade-in transition-all"
+                >
+                    <div className="bg-surface-container-lowest dark:bg-dark-surface w-full h-full md:h-[92vh] md:max-w-5xl shadow-2xl border dark:border-dark-outline flex flex-col overflow-hidden md:rounded-xl">
 
-                        {/* Cabecera del Modal (Ajustada para Armonía y Responsive) */}
-                        <div className="px-4 py-3 md:px-5 md:py-4 border-b border-outline-variant/50 dark:border-dark-outline flex justify-between items-center bg-surface-bright dark:bg-dark-surface-container shrink-0">
-                            <div>
-                                <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-[12px] md:text-sm tracking-widest flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[18px] md:text-[24px]">inventory_2</span>
-                                    Registrar Compra
-                                </h3>
+                        {/* Cabecera Adaptada para Móviles <= 375px (Filas ordenadas, sin desbordamiento) */}
+                        <div className="px-3 py-2 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col md:flex-row md:items-center justify-between gap-2 bg-surface-bright dark:bg-dark-surface-container shrink-0">
+                            <div className="flex items-center justify-between w-full md:w-auto gap-2">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[20px] md:text-[24px]">inventory_2</span>
+                                    <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-[11px] md:text-sm tracking-wider truncate">
+                                        Reposición
+                                    </h3>
+                                </div>
+
+                                {/* Botones de acción en móvil (Vaciar icon + Cerrar X) */}
+                                <div className="flex md:hidden items-center gap-1 shrink-0">
+                                    {restockCart.length > 0 && (
+                                        <button onClick={clearRestockCart} title="Vaciar Lista" className="text-[10px] font-black uppercase tracking-widest text-error hover:text-error/80 transition-colors flex items-center justify-center gap-1 bg-error/10 p-1.5 rounded-lg border border-error/20">
+                                            <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                                        </button>
+                                    )}
+                                    <button onClick={() => setIsRestockModalOpen(false)} title="Cerrar" className="p-1.5 text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors">
+                                        <span className="material-symbols-outlined text-[20px]">close</span>
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 md:gap-3">
+
+                            {/* TOGGLE SWITCH SIMPLIFICADO: 100% Ancho en Móvil (<= 375px), Auto en Desktop */}
+                            <div className="flex items-center gap-1 bg-surface dark:bg-dark-background p-1 rounded-xl border border-outline-variant/50 dark:border-dark-outline select-none shadow-inner w-full md:w-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsConfirmMode(false)}
+                                    className={`flex-1 md:flex-initial px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${!isConfirmMode ? 'bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background shadow-md' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:text-on-surface'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">edit_note</span>
+                                    Estimación
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsConfirmMode(true)}
+                                    className={`flex-1 md:flex-initial px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${isConfirmMode ? 'bg-emerald-500 text-white shadow-md' : 'text-on-surface-variant dark:text-dark-on-surface-variant hover:text-on-surface'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                    Facturar
+                                </button>
+                            </div>
+
+                            {/* Botones de acción en Desktop */}
+                            <div className="hidden md:flex items-center gap-1.5 shrink-0">
                                 {restockCart.length > 0 && (
-                                    <button onClick={clearRestockCart} className="text-[10px] font-black uppercase tracking-widest text-error hover:text-error/80 transition-colors flex items-center justify-center gap-1 bg-error/10 px-2 py-1.5 md:px-3 md:py-1.5 rounded border border-error/20 hover:bg-error/20">
+                                    <button onClick={clearRestockCart} title="Vaciar Lista" className="text-[10px] font-black uppercase tracking-widest text-error hover:text-error/80 transition-colors flex items-center justify-center gap-1 bg-error/10 px-2.5 py-1.5 rounded-lg border border-error/20 hover:bg-error/20">
                                         <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
-                                        <span className="hidden md:inline">Vaciar</span>
+                                        <span>Vaciar</span>
                                     </button>
                                 )}
-                                <button onClick={() => { setIsRestockModalOpen(false); clearRestockCart(); }} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors ml-1">
-                                    <span className="material-symbols-outlined text-[20px] md:text-[24px]">close</span>
+                                <button onClick={() => setIsRestockModalOpen(false)} title="Cerrar" className="p-1.5 text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors">
+                                    <span className="material-symbols-outlined text-[22px]">close</span>
                                 </button>
                             </div>
                         </div>
@@ -409,62 +527,234 @@ export default function Index({ auth, products, categories = [], restockHistory 
                         {/* Contenido dividido: Columna en móvil, Fila en Desktop */}
                         <div className="flex flex-col md:flex-row flex-grow overflow-hidden relative">
 
-                            {/* Lado Izquierdo: Catálogo de Productos */}
-                            <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-outline-variant/30 dark:border-dark-outline flex flex-col h-[40vh] md:h-full shrink-0 md:shrink">
-                                <div className="p-3 overflow-y-auto flex-grow bg-surface-container-lowest dark:bg-dark-background/50">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {products.map(p => (
+                            {/* Lado Izquierdo: Catálogo y Búsqueda + Formulario de Creación Rápida */}
+                            <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-outline-variant/30 dark:border-dark-outline flex flex-col h-[40vh] md:h-full shrink-0 md:shrink bg-surface-container-lowest dark:bg-dark-background/40">
+
+                                {/* Top Header del lado izquierdo: Buscar y Botón Crear Producto Rápido */}
+                                <div className="p-3 border-b border-outline-variant/30 dark:border-dark-outline bg-surface dark:bg-dark-surface/60 flex items-center justify-between gap-2 shrink-0">
+                                    {!isQuickCreateOpen ? (
+                                        <>
+                                            <div className="relative flex-1">
+                                                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">search</span>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Buscar producto..."
+                                                    value={restockSearch}
+                                                    onChange={(e) => setRestockSearch(e.target.value)}
+                                                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-outline-variant dark:border-dark-outline bg-surface-container-low dark:bg-dark-background text-on-surface dark:text-white font-bold focus:ring-1 focus:ring-primary"
+                                                />
+                                            </div>
                                             <button
-                                                key={p.id}
-                                                onClick={() => addToRestock(p)}
-                                                className="text-left px-3 py-2 bg-surface-container dark:bg-dark-surface border border-outline-variant/50 dark:border-dark-outline rounded-lg hover:border-primary dark:hover:border-dark-primary transition-colors flex flex-col items-start gap-1"
+                                                onClick={() => setIsQuickCreateOpen(true)}
+                                                className="px-2.5 py-1.5 bg-primary/10 dark:bg-dark-primary/10 text-primary dark:text-dark-primary hover:bg-primary/20 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors border border-primary/20 dark:border-dark-primary/30 flex items-center gap-1 shrink-0"
                                             >
-                                                <span className="text-[11px] font-bold uppercase text-on-surface dark:text-white truncate w-full">{p.name}</span>
-                                                <span className="text-[9px] opacity-70 text-on-surface-variant dark:text-dark-on-surface-variant">Stock: {p.stock}</span>
+                                                <span className="material-symbols-outlined text-[14px]">add</span>
+                                                Nuevo
                                             </button>
-                                        ))}
-                                    </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center justify-between w-full">
+                                            <span className="text-xs font-black uppercase tracking-wider text-primary dark:text-dark-primary flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-[16px]">add_circle</span> Crear Producto Rápido
+                                            </span>
+                                            <button
+                                                onClick={() => setIsQuickCreateOpen(false)}
+                                                className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-error transition-colors flex items-center gap-0.5"
+                                            >
+                                                <span className="material-symbols-outlined text-[14px]">arrow_back</span> Volver
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Cuerpo del Lado Izquierdo: Grilla de Productos Ordenados A-Z o Formulario Compacto */}
+                                {!isQuickCreateOpen ? (
+                                    <div className="p-3 overflow-y-auto flex-grow custom-scrollbar">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {products
+                                                .filter(p => p.name.toLowerCase().includes(restockSearch.toLowerCase()))
+                                                .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+                                                .map(p => {
+                                                    const costVal = Number(p.cost_usd || 0).toFixed(2);
+                                                    return (
+                                                        <button
+                                                            key={p.id}
+                                                            onClick={() => addToRestock(p)}
+                                                            className="text-left p-2.5 bg-surface dark:bg-dark-surface border border-outline-variant/40 dark:border-dark-outline rounded-xl hover:border-primary dark:hover:border-dark-primary transition-all flex flex-col justify-between gap-1 group shadow-sm hover:shadow"
+                                                        >
+                                                            <span className="text-[11px] font-bold uppercase text-on-surface dark:text-white truncate w-full group-hover:text-primary dark:group-hover:text-dark-primary">{p.name}</span>
+                                                            <div className="flex justify-between items-center w-full mt-1 border-t border-outline-variant/20 dark:border-dark-outline/30 pt-1">
+                                                                <span className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant">Stock: {p.stock}</span>
+                                                                <span className="text-[9px] font-black text-primary dark:text-dark-primary">${costVal}</span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={submitQuickCreate} className="p-4 overflow-y-auto flex-grow flex flex-col gap-3 custom-scrollbar">
+                                        <div>
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">Nombre / Sabor *</label>
+                                            <input
+                                                type="text" required
+                                                value={quickData.name}
+                                                onChange={e => setQuickData('name', e.target.value)}
+                                                placeholder="Ej. Torta Helada Especial"
+                                                className="w-full text-xs font-bold p-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">Categoría</label>
+                                                <select
+                                                    value={quickData.category_id}
+                                                    onChange={e => setQuickData('category_id', e.target.value)}
+                                                    className="w-full text-xs font-bold p-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white"
+                                                >
+                                                    {catsList.map(c => (
+                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">Stock Inicial</label>
+                                                <input
+                                                    type="text" inputMode="numeric"
+                                                    value={quickData.stock}
+                                                    onChange={e => setQuickData('stock', sanitizeInteger(e.target.value))}
+                                                    className="w-full text-xs font-bold p-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* COSTO AL MAYOR BI-MONEDA ($ Y BS) */}
+                                        <div className="grid grid-cols-2 gap-2 border-t border-outline-variant/30 dark:border-dark-outline/30 pt-2">
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-primary dark:text-dark-primary block mb-1">Costo ($) *</label>
+                                                <input
+                                                    type="text" inputMode="decimal" required placeholder="0.00"
+                                                    value={quickData.cost_usd}
+                                                    onChange={e => {
+                                                        const v = sanitizeDecimal(e.target.value);
+                                                        setQuickData(d => ({ ...d, cost_usd: v, cost_bs: v ? (v * tasaBCV).toFixed(2) : '' }));
+                                                    }}
+                                                    className="w-full text-xs font-black p-2 rounded-lg border border-primary/40 dark:border-dark-primary/40 bg-primary/5 dark:bg-dark-primary/10 text-primary dark:text-dark-primary"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">Costo (Bs)</label>
+                                                <input
+                                                    type="text" inputMode="decimal" placeholder="0.00"
+                                                    value={quickData.cost_bs || ''}
+                                                    onChange={e => {
+                                                        const v = sanitizeDecimal(e.target.value);
+                                                        setQuickData(d => ({ ...d, cost_bs: v, cost_usd: v ? (v / tasaBCV).toFixed(2) : '' }));
+                                                    }}
+                                                    className="w-full text-xs font-bold p-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* PRECIO VENTA BI-MONEDA ($ Y BS) */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">Precio Venta ($) *</label>
+                                                <input
+                                                    type="text" inputMode="decimal" required placeholder="0.00"
+                                                    value={quickData.price_usd}
+                                                    onChange={e => {
+                                                        const v = sanitizeDecimal(e.target.value);
+                                                        setQuickData(d => ({ ...d, price_usd: v, price_bs: v ? (v * tasaBCV).toFixed(2) : '' }));
+                                                    }}
+                                                    className="w-full text-xs font-bold p-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">Precio Venta (Bs)</label>
+                                                <input
+                                                    type="text" inputMode="decimal" placeholder="0.00"
+                                                    value={quickData.price_bs}
+                                                    onChange={e => {
+                                                        const v = sanitizeDecimal(e.target.value);
+                                                        setQuickData(d => ({ ...d, price_bs: v, price_usd: v ? (v / tasaBCV).toFixed(2) : '' }));
+                                                    }}
+                                                    className="w-full text-xs font-bold p-2 rounded-lg border border-outline-variant dark:border-dark-outline bg-surface dark:bg-dark-surface text-on-surface dark:text-white"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="submit" disabled={processingQuick}
+                                            className="w-full py-2.5 mt-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase tracking-wider rounded-lg shadow hover:opacity-90 transition-all flex justify-center items-center gap-1"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">save</span>
+                                            Guardar y Agregar
+                                        </button>
+                                    </form>
+                                )}
                             </div>
 
-                            {/* Lado Derecho: Carrito + Totales */}
+                            {/* Lado Derecho: Carrito + Estimación / Factura */}
                             <div className="w-full md:w-1/2 flex flex-col flex-grow overflow-hidden bg-surface-container-lowest/50 dark:bg-dark-background/20 relative">
 
-                                {/* Lista de productos a reponer (Scrollable) */}
-                                <div className="flex-grow overflow-y-auto p-3 flex flex-col gap-2">
+                                {/* Lista de productos a reponer con cantidades y costos al mayor */}
+                                <div className="flex-grow overflow-y-auto p-3 flex flex-col gap-2 custom-scrollbar">
                                     {restockCart.length === 0 ? (
-                                        <div className="flex-grow flex items-center justify-center opacity-40 min-h-[150px]">
-                                            <p className="text-xs font-bold uppercase tracking-widest text-center">Aún no has agregado helados</p>
+                                        <div className="flex-grow flex flex-col items-center justify-center opacity-40 min-h-[160px]">
+                                            <span className="material-symbols-outlined text-[36px] text-on-surface-variant mb-2">playlist_add</span>
+                                            <p className="text-xs font-bold uppercase tracking-widest text-center">Selecciona o crea productos para armar tu lista de reposición</p>
                                         </div>
                                     ) : (
-                                        restockCart.map(item => (
-                                            <div key={item.product.id} className="flex justify-between items-center p-2 rounded-lg border border-outline-variant/50 dark:border-dark-outline bg-surface dark:bg-dark-surface shadow-sm shrink-0">
-                                                <div className="flex-grow min-w-0 pr-2">
-                                                    <p className="text-[11px] sm:text-xs font-bold uppercase text-on-surface dark:text-white truncate">{item.product.name}</p>
+                                        restockCart.map(item => {
+                                            const subtotal = ((Number(item.quantity) || 0) * (Number(item.cost_usd) || 0)).toFixed(2);
+                                            return (
+                                                <div key={item.product.id} className="p-2.5 rounded-xl border border-outline-variant/40 dark:border-dark-outline bg-surface dark:bg-dark-surface shadow-sm flex flex-col gap-2 shrink-0">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-[11px] sm:text-xs font-black uppercase text-on-surface dark:text-white truncate pr-2">{item.product.name}</p>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <span className="text-[11px] font-black text-primary dark:text-dark-primary">${subtotal}</span>
+                                                            <button onClick={() => removeFromRestock(item.product.id)} className="w-6 h-6 flex items-center justify-center text-error hover:bg-error/10 rounded transition-colors">
+                                                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between gap-2 border-t border-outline-variant/20 dark:border-dark-outline/30 pt-2">
+                                                        {/* Control de Cantidades */}
+                                                        <div className="flex items-center gap-1">
+                                                            <button onClick={() => updateRestockQty(item.product.id, item.quantity - 1)} className="w-6 h-6 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
+                                                                <span className="material-symbols-outlined text-[14px]">remove</span>
+                                                            </button>
+                                                            <input
+                                                                type="text" inputMode="numeric" value={item.quantity}
+                                                                onChange={(e) => updateRestockQty(item.product.id, sanitizeInteger(e.target.value))}
+                                                                className="w-9 h-6 text-center font-black text-xs bg-transparent border-none focus:ring-0 px-0 text-on-surface dark:text-white"
+                                                            />
+                                                            <button onClick={() => updateRestockQty(item.product.id, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
+                                                                <span className="material-symbols-outlined text-[14px]">add</span>
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Control de Costo Unitario al Mayor */}
+                                                        <div className="flex items-center gap-1 bg-surface-container-low dark:bg-dark-background px-2 py-0.5 rounded border border-outline-variant/30 dark:border-dark-outline">
+                                                            <span className="text-[9px] font-bold text-on-surface-variant uppercase">Costo ($):</span>
+                                                            <input
+                                                                type="text" inputMode="decimal" value={item.cost_usd}
+                                                                onChange={(e) => updateRestockCost(item.product.id, sanitizeDecimal(e.target.value))}
+                                                                className="w-12 h-6 text-center font-black text-xs bg-transparent border-none focus:ring-0 px-0 text-primary dark:text-dark-primary"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    <button onClick={() => updateRestockQty(item.product.id, item.quantity - 1)} className="w-7 h-7 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
-                                                        <span className="material-symbols-outlined text-[16px]">remove</span>
-                                                    </button>
-                                                    <input
-                                                        type="text" inputMode="numeric" value={item.quantity}
-                                                        onChange={(e) => updateRestockQty(item.product.id, sanitizeInteger(e.target.value))}
-                                                        className="w-10 h-8 text-center font-black text-sm bg-transparent border-none focus:ring-0 px-0 text-on-surface dark:text-white"
-                                                    />
-                                                    <button onClick={() => updateRestockQty(item.product.id, item.quantity + 1)} className="w-7 h-7 flex items-center justify-center bg-surface-container-high dark:bg-dark-background text-on-surface dark:text-white rounded hover:text-primary transition-colors border dark:border-dark-outline">
-                                                        <span className="material-symbols-outlined text-[16px]">add</span>
-                                                    </button>
-                                                    <button onClick={() => removeFromRestock(item.product.id)} className="w-7 h-7 flex items-center justify-center text-error bg-error/10 hover:bg-error border border-error/20 hover:text-white rounded transition-colors ml-1">
-                                                        <span className="material-symbols-outlined text-[14px]">delete</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
 
                                 {/* Footer de Totales */}
-                                <div className="p-4 bg-surface-container-low dark:bg-dark-background/80 shrink-0 border-t border-outline-variant/30 dark:border-dark-outline shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none mt-auto">
+                                <div className="p-4 bg-surface-container-low dark:bg-dark-background/90 shrink-0 border-t border-outline-variant/30 dark:border-dark-outline shadow-lg md:shadow-none mt-auto">
+
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="relative flex-1">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-primary dark:text-dark-primary text-sm">$</span>
@@ -492,14 +782,29 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-on-surface-variant opacity-50 text-[10px]">Bs</span>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={submitRestock}
-                                        disabled={restockCart.length === 0 || (!restockTotalUsd && !restockTotalBs)}
-                                        className="w-full py-2.5 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase tracking-wider rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 transition-all border dark:border-dark-primary/20 flex justify-center items-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">save</span>
-                                        Guardar Factura
-                                    </button>
+
+                                    {/* BOTÓN DE ACCIÓN ADAPTATIVO AL MODO */}
+                                    {!isConfirmMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsConfirmMode(true)}
+                                            disabled={restockCart.length === 0}
+                                            className="w-full py-3 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:opacity-90 transition-all border dark:border-dark-primary/20 flex justify-center items-center gap-2 disabled:opacity-50"
+                                        >
+                                            <span>Pasar a Facturar</span>
+                                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={submitRestock}
+                                            disabled={restockCart.length === 0 || (!restockTotalUsd && !restockTotalBs)}
+                                            className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                            <span>Confirmar y Guardar Factura</span>
+                                        </button>
+                                    )}
                                 </div>
 
                             </div>
@@ -691,7 +996,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                 <div>
                                     <label className="font-label-md text-on-surface-variant mb-1.5 block font-black text-[10px] uppercase tracking-widest">Categoría</label>
                                     <select value={data.category_id} onChange={e => setData('category_id', e.target.value)} className="w-full bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-lg px-3 py-2 text-on-surface dark:text-white transition-colors text-sm focus:border-primary">
-                                        {categories.map(cat => (
+                                        {catsList.map(cat => (
                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                         ))}
                                     </select>
@@ -751,7 +1056,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                     <div className="flex flex-col">
                                         <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 whitespace-nowrap">Categoría</label>
                                         <select id={`edit_category_${product.id}`} className="font-headline-sm text-on-surface dark:text-white bg-surface-container dark:bg-dark-background border border-outline-variant dark:border-dark-outline rounded-md px-3 py-2 w-full focus:border-primary dark:focus:border-dark-primary font-bold text-sm transition-colors" defaultValue={product.category_id || 1}>
-                                            {categories.map(cat => (
+                                            {catsList.map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>
@@ -805,7 +1110,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
             <CategoryManagerModal
                 isOpen={isCategoryModalOpen}
                 onClose={() => setIsCategoryModalOpen(false)}
-                categories={categories}
+                categories={catsList}
             />
 
         </MainLayout>

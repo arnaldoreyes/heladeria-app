@@ -12,6 +12,8 @@ export default function CategoryManagerModal({ isOpen, onClose, categories }) {
         icon: 'icecream'
     });
 
+    const catsList = Array.isArray(categories) ? categories : Object.values(categories || {});
+
     if (!isOpen) return null;
 
     const handleCreate = () => {
@@ -76,8 +78,8 @@ export default function CategoryManagerModal({ isOpen, onClose, categories }) {
                             </button>
                             
                             <div className="flex flex-col gap-2 mt-2">
-                                {categories.map(cat => (
-                                    <div key={cat.id} className="flex justify-between items-center p-3 rounded-lg border border-outline-variant/50 dark:border-dark-outline bg-surface-container-lowest dark:bg-dark-background">
+                                {catsList.map((cat, idx) => (
+                                    <div key={cat.id ? `cat-${cat.id}` : `cat-idx-${idx}`} className="flex justify-between items-center p-3 rounded-lg border border-outline-variant/50 dark:border-dark-outline bg-surface-container-lowest dark:bg-dark-background">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary dark:bg-dark-primary/10 dark:text-dark-primary shrink-0 border border-primary/20">
                                                 <span className="material-symbols-outlined text-[20px]">{cat.icon || 'icecream'}</span>

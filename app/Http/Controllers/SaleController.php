@@ -174,4 +174,31 @@ class SaleController extends Controller
             return back()->withErrors(['error' => 'Error al modificar el ticket: ' . $e->getMessage()]);
         }
     }
+
+    public function destroy(Sale $sale)
+    {
+        DB::beginTransaction();
+
+        try {
+            // Reversión e incremento del inventario original
+            $currentItems = $sale->items()->with('product')->get();
+            foreach ($currentItems as $item) {
+                if ($item->product) {
+                    Product::where('id', $item->product_id)->increment('stock', $item->quantity);
+                }
+            }
+
+            // Eliminar ítems y el ticket
+            $sale->items()->delete();
+            $sale->delete();
+
+            DB::commit();
+
+            return back()->with('success', 'Ticket #' . $sale->id . ' eliminado y stock devuelto con éxito.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error al eliminar el ticket: ' . $e->getMessage()]);
+        }
+    }
 }

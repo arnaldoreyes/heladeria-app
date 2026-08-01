@@ -14,6 +14,13 @@ export default function Dashboard({
     const [selectedSale, setSelectedSale] = useState(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isTopGlobalOpen, setIsTopGlobalOpen] = useState(false);
+    const [toast, setToast] = useState('');
+    const [saleToDelete, setSaleToDelete] = useState(null);
+
+    const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3500);
+    };
 
     // --- ESTADOS PARA EL HISTÓRICO MENSUAL ---
     const [isMonthlySidebarOpen, setIsMonthlySidebarOpen] = useState(false);
@@ -23,7 +30,8 @@ export default function Dashboard({
     useEffect(() => {
         const handleEsc = (e) => {
             if (e.key === 'Escape') {
-                if (selectedSale) setSelectedSale(null);
+                if (saleToDelete) setSaleToDelete(null);
+                else if (selectedSale) setSelectedSale(null);
                 else if (selectedMonth) setSelectedMonth(null);
                 else if (isHistoryOpen) setIsHistoryOpen(false);
                 else if (isTopGlobalOpen) setIsTopGlobalOpen(false);
@@ -32,7 +40,7 @@ export default function Dashboard({
         };
         window.addEventListener('keydown', handleEsc);
         return () => window.removeEventListener('keydown', handleEsc);
-    }, [selectedSale, selectedMonth, isHistoryOpen, isTopGlobalOpen, isMonthlySidebarOpen]);
+    }, [saleToDelete, selectedSale, selectedMonth, isHistoryOpen, isTopGlobalOpen, isMonthlySidebarOpen]);
 
     // --- FORMATEADORES ---
     const formatMoney = (amount) => {
@@ -447,11 +455,11 @@ export default function Dashboard({
                                 <div className="flex justify-between items-end mb-1">
                                     <span className="text-xs font-black text-primary dark:text-dark-primary uppercase tracking-widest">Ganancia Neta Final:</span>
                                     <span className="font-display-lg font-black text-primary dark:text-dark-primary text-2xl tracking-tighter">
-                                        ${formatMoney(Math.max(0, (selectedMonth.total_usd * profitRatio) - selectedMonth.total_loss_usd))}
+                                        ${formatMoney(Math.max(0, (selectedMonth.profit_usd || 0) - (selectedMonth.total_loss_usd || 0)))}
                                     </span>
                                 </div>
                                 <div className="text-right text-[11px] font-black text-on-surface-variant dark:text-dark-on-surface-variant opacity-70">
-                                    ~ {formatMoney(Math.max(0, (selectedMonth.total_bs * profitRatio) - selectedMonth.total_loss_bs))} BS
+                                    ~ {formatMoney(Math.max(0, ((selectedMonth.profit_usd || 0) - (selectedMonth.total_loss_usd || 0)) * tasaBCV))} BS
                                 </div>
                             </div>
                         </div>
@@ -510,7 +518,10 @@ export default function Dashboard({
                     >
                         <div className="px-5 py-5 border-b border-outline-variant/50 dark:border-dark-outline flex flex-col gap-4 bg-surface-bright dark:bg-dark-surface-container">
                             <div className="flex justify-between items-center">
-                                <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg">Ticket #{selectedSale.id}</h2>
+                                <div>
+                                    <h2 className="font-headline-sm font-black text-on-surface dark:text-white tracking-tighter text-lg">Ticket {selectedSale.transaction_code || `#${selectedSale.id}`}</h2>
+                                    <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">ID Registro: #{selectedSale.id}</p>
+                                </div>
                                 <button onClick={() => setSelectedSale(null)} className="text-on-surface-variant dark:text-dark-on-surface-variant hover:text-error transition-colors flex items-center justify-center">
                                     <span className="material-symbols-outlined text-[20px]">close</span>
                                 </button>
@@ -578,23 +589,37 @@ export default function Dashboard({
                                 </div>
                             )}
 
-                            {/* Distribución del Ticket Específico (3 Fondos) */}
-                            <div className="grid grid-cols-3 gap-2 mb-4 mt-2">
-                                <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Reposición</p>
-                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.cost_usd || 0)}</p>
-                                </div>
-                                <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Reinversión ({business_percentage}%)</p>
-                                    <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(selectedSale.reinvestment_usd || 0)}</p>
-                                </div>
-                                <div className="bg-primary/10 dark:bg-dark-primary/10 p-2 rounded border border-primary/20 dark:border-dark-primary/20">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary dark:text-dark-primary mb-1">Ganancia ({profit_percentage}%)</p>
-                                    <p className="font-black text-xs text-primary dark:text-dark-primary">
-                                        ${formatMoney(Math.max(0, (selectedSale.profit_usd || 0) - ((selectedSale.change_loss_bs || 0) / (selectedSale.tasa_bcv || 1))))}
-                                    </p>
-                                </div>
-                            </div>
+                            {/* Distribución del Ticket Específico (3 Fondos en USD y Bs) */}
+                            {(() => {
+                                const tasa = Number(selectedSale.tasa_bcv || 1);
+                                const costUsd = Number(selectedSale.cost_usd || 0);
+                                const costBs = costUsd * tasa;
+                                const reinvestmentUsd = Number(selectedSale.reinvestment_usd || 0);
+                                const reinvestmentBs = reinvestmentUsd * tasa;
+                                const changeLossUsd = Number(selectedSale.change_loss_bs || 0) > 0 ? Number(selectedSale.change_loss_bs) / tasa : 0;
+                                const profitUsd = Math.max(0, Number(selectedSale.profit_usd || 0) - changeLossUsd);
+                                const profitBs = profitUsd * tasa;
+
+                                return (
+                                    <div className="grid grid-cols-3 gap-2 mb-4 mt-2">
+                                        <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Reposición</p>
+                                            <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(costUsd)}</p>
+                                            <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-80 mt-0.5">~ {formatMoney(costBs)} Bs</p>
+                                        </div>
+                                        <div className="bg-surface-container-low dark:bg-dark-surface p-2 rounded border border-outline-variant/30 dark:border-dark-outline/50">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Reinversión</p>
+                                            <p className="font-black text-xs text-on-surface dark:text-white">${formatMoney(reinvestmentUsd)}</p>
+                                            <p className="text-[9px] font-bold text-on-surface-variant dark:text-dark-on-surface-variant opacity-80 mt-0.5">~ {formatMoney(reinvestmentBs)} Bs</p>
+                                        </div>
+                                        <div className="bg-primary/10 dark:bg-dark-primary/10 p-2 rounded border border-primary/20 dark:border-dark-primary/20">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-primary dark:text-dark-primary mb-1">Ganancia</p>
+                                            <p className="font-black text-xs text-primary dark:text-dark-primary">${formatMoney(profitUsd)}</p>
+                                            <p className="text-[9px] font-bold text-primary/80 dark:text-dark-primary/80 mt-0.5">~ {formatMoney(profitBs)} Bs</p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="flex justify-between items-center mb-1 border-t border-outline-variant/30 dark:border-dark-outline/30 pt-3">
                                 <span className="text-xs font-black text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-widest">Total Pagado:</span>
@@ -604,19 +629,28 @@ export default function Dashboard({
                                 / {formatMoney(selectedSale.total_bs)} BS
                             </div>
 
-                            {/* BOTÓN EDITAR TICKET (SOLO SI EL TICKET PERTENECE A LA JORNADA DE HOY) */}
-                            {isSaleFromToday(selectedSale.created_at) && (
+                            {/* ACCIONES DEL TICKET (EDITAR / ELIMINAR) */}
+                            <div className="flex gap-2 mt-2">
+                                {isSaleFromToday(selectedSale.created_at) && (
+                                    <button
+                                        onClick={() => {
+                                            setSelectedSale(null);
+                                            router.get(route('pos.index'), { edit_sale_id: selectedSale.id });
+                                        }}
+                                        className="flex-1 bg-primary/10 text-primary dark:bg-dark-primary/10 dark:text-dark-primary py-2.5 rounded-lg font-black text-xs uppercase tracking-wider flex justify-center items-center gap-1 hover:bg-primary/20 transition-all border border-primary/20 shadow-sm"
+                                    >
+                                        <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                                        Editar
+                                    </button>
+                                )}
                                 <button
-                                    onClick={() => {
-                                        setSelectedSale(null);
-                                        router.get(route('pos.index'), { edit_sale_id: selectedSale.id });
-                                    }}
-                                    className="w-full mt-2 bg-primary/10 text-primary dark:bg-dark-primary/10 dark:text-dark-primary py-2.5 rounded-lg font-black text-xs uppercase tracking-wider flex justify-center items-center gap-2 hover:bg-primary/20 dark:hover:bg-dark-primary/20 transition-all border border-primary/20 dark:border-dark-primary/20 shadow-sm"
+                                    onClick={() => setSaleToDelete(selectedSale)}
+                                    className="flex-1 bg-error/10 text-error py-2.5 rounded-lg font-black text-xs uppercase tracking-wider flex justify-center items-center gap-1 hover:bg-error/20 transition-all border border-error/20 shadow-sm"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                                    Editar Ticket
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    Eliminar
                                 </button>
-                            )}
+                            </div>
 
                         </div>
                     </div>
@@ -664,6 +698,67 @@ export default function Dashboard({
                     </div>
                 </div>
             </div>
+
+            {/* MODAL PERSONALIZADO DE CONFIRMACIÓN PARA ELIMINAR TICKET */}
+            {saleToDelete && (
+                <div
+                    className="fixed inset-0 z-[140] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in transition-all"
+                    onClick={() => setSaleToDelete(null)}
+                >
+                    <div
+                        className="bg-surface-container-lowest dark:bg-dark-surface w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 border dark:border-dark-outline"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-3 text-error">
+                            <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0 border border-error/20">
+                                <span className="material-symbols-outlined text-[22px]">warning</span>
+                            </div>
+                            <div>
+                                <h3 className="font-black text-base text-on-surface dark:text-white">¿Eliminar Ticket?</h3>
+                                <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant uppercase tracking-wider font-bold">Esta acción revertirá el stock</p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-on-surface-variant dark:text-gray-300 leading-relaxed bg-surface-container-low dark:bg-dark-background p-3 rounded-xl border border-outline-variant/30 dark:border-dark-outline">
+                            Se eliminará el ticket <strong className="text-on-surface dark:text-white font-black">{saleToDelete.transaction_code || `#${saleToDelete.id}`}</strong> y se incrementará automáticamente el inventario.
+                        </p>
+
+                        <div className="flex gap-2 justify-end mt-2">
+                            <button
+                                type="button"
+                                onClick={() => setSaleToDelete(null)}
+                                className="px-4 py-2 rounded-lg border border-outline-variant dark:border-dark-outline text-xs font-black uppercase text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const sId = saleToDelete.id;
+                                    setSaleToDelete(null);
+                                    setSelectedSale(null);
+                                    router.delete(route('sales.destroy', sId), {
+                                        preserveScroll: true,
+                                        onSuccess: () => showToast('Ticket eliminado correctamente'),
+                                    });
+                                }}
+                                className="px-4 py-2 rounded-lg bg-error text-white text-xs font-black uppercase shadow-md hover:opacity-90 flex items-center gap-1 transition-all"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TOAST DE NOTIFICACIÓN CUSTOM */}
+            {toast && (
+                <div className="fixed top-20 right-4 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background px-6 py-3 rounded-xl shadow-2xl z-[200] font-black animate-fade-in flex items-center gap-2 border border-primary/30">
+                    <span className="material-symbols-outlined">check_circle</span>
+                    <span className="text-xs uppercase tracking-widest">{toast}</span>
+                </div>
+            )}
         </MainLayout>
     );
 }

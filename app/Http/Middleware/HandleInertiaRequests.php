@@ -32,28 +32,10 @@ class HandleInertiaRequests extends Middleware
         if ($mode === 'manual' && $manualRate > 0) {
             $tasaFinal = $manualRate;
         } else {
-            // Lógica Auto con TU PROPIO SCRAPER (Expiración a medianoche o máx 2 horas)
-            $now = Carbon::now('America/Caracas');
-            $midnight = Carbon::tomorrow('America/Caracas');
-            $ttl = max(60, $now->diffInSeconds($midnight));
-            $ttl = min(7200, $ttl); // Máximo 2 horas de caché
-
-            $tasaFinal = Cache::remember('tasa_bcv_global', $ttl, function () use ($settings) {
-                $scraper = new BcvScraperService();
-                
-                // 1. Promover tasa futura programada si hoy ya es el día
-                $scraper->promoteScheduledRateIfApplicable();
-
-                // 2. Intentar scraping para buscar actualizaciones
-                $bcvData = $scraper->getUsdData();
-                if ($bcvData !== null) {
-                    $scraper->processAndStoreBcvData($bcvData);
-                }
-
-                // 3. Devolver la tasa activa actual
-                $currentRate = Setting::where('key', 'last_bcv_rate')->value('value');
-                return (float) ($currentRate ?? $settings['last_bcv_rate'] ?? 1); 
-            });
+            $tasaFinal = (float) ($settings['last_bcv_rate'] ?? 1);
+            if ($tasaFinal <= 0) {
+                $tasaFinal = 1.0;
+            }
         }
 
         return [

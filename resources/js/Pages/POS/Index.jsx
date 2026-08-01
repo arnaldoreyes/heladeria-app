@@ -36,6 +36,17 @@ export default function POS({ products, categories = [], editSaleData = null }) 
         }
     }, [editSaleData]);
 
+    // Escape listener para cerrar modales en POS
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (isModalOpen) setIsModalOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isModalOpen]);
+
     const addToCart = (product) => {
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.product.id === product.id);
@@ -321,7 +332,10 @@ export default function POS({ products, categories = [], editSaleData = null }) 
                 )}
 
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-colors">
+                    <div
+                        onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
+                        className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-colors"
+                    >
                         <div className="bg-surface dark:bg-dark-surface w-full md:max-w-md rounded-t-2xl md:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border dark:border-dark-outline">
 
                             <div className="px-md py-sm border-b border-outline-variant dark:border-dark-outline flex justify-between items-center bg-surface-bright dark:bg-dark-surface-container">

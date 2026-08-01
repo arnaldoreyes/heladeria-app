@@ -22,6 +22,13 @@ class Sale extends Model
         'change_loss_bs'
     ];
 
+    protected $appends = ['transaction_code'];
+
+    public function getTransactionCodeAttribute()
+    {
+        return 'TX-' . str_pad($this->id, 6, '0', STR_PAD_LEFT);
+    }
+
     public function items()
     {
         return $this->hasMany(SaleItem::class);

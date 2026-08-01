@@ -136,6 +136,10 @@ class BcvScraperService
         $today = Carbon::today('America/Caracas')->format('Y-m-d');
         $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
 
+        // Siempre guardamos la última tasa oficial leída del sitio del BCV para fines informativos
+        Setting::updateOrCreate(['key' => 'bcv_latest_scraped_rate'], ['value' => $rateValue]);
+        Setting::updateOrCreate(['key' => 'bcv_latest_scraped_date'], ['value' => $rateDate]);
+
         // Si la tasa es idéntica a la tasa activa actual, no hacemos nada y limpiamos
         if ($lastRate !== null && (float)$rateValue === (float)$lastRate) {
             Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();

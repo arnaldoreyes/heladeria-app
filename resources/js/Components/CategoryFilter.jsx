@@ -1,13 +1,14 @@
 import React from 'react';
 
 export default function CategoryFilter({ categories, selectedCategory, onSelectCategory }) {
-    if (!categories || categories.length <= 1) return null;
+    const catsList = Array.isArray(categories) ? categories : Object.values(categories || {});
+    if (!catsList || catsList.length <= 1) return null;
 
     return (
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar">
+        <div className="flex flex-wrap gap-1.5 mb-4">
             <button
                 onClick={() => onSelectCategory(null)}
-                className={`flex-shrink-0 px-5 py-2 rounded-full font-black text-xs uppercase border transition-all ${
+                className={`px-4 py-1.5 rounded-full font-black text-[11px] uppercase border transition-all ${
                     selectedCategory === null
                         ? 'bg-primary text-on-primary border-primary dark:bg-dark-primary dark:text-dark-background'
                         : 'bg-surface-container text-on-surface-variant border-transparent hover:bg-surface-container-high'
@@ -15,17 +16,17 @@ export default function CategoryFilter({ categories, selectedCategory, onSelectC
             >
                 Todos
             </button>
-            {categories.map(cat => (
+            {catsList.map(cat => (
                 <button
                     key={cat.id}
                     onClick={() => onSelectCategory(cat.id)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-black text-xs uppercase border transition-all ${
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full font-black text-[11px] uppercase border transition-all ${
                         selectedCategory === cat.id
                             ? 'bg-primary text-on-primary border-primary dark:bg-dark-primary dark:text-dark-background'
                             : 'bg-surface-container text-on-surface-variant border-transparent hover:bg-surface-container-high'
                     }`}
                 >
-                    <span className="material-symbols-outlined text-[18px]">{cat.icon || 'icecream'}</span>
+                    <span className="material-symbols-outlined text-[16px]">{cat.icon || 'icecream'}</span>
                     {cat.name}
                 </button>
             ))}
