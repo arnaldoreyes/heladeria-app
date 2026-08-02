@@ -77,9 +77,9 @@ class SettingController extends Controller
             if ($result['status'] === 'activated_today') {
                 return back()->with('success', "¡Tasa de hoy ({$result['rate']} Bs.) actualizada exitosamente!");
             } elseif ($result['status'] === 'scheduled_future') {
-                $formattedRateDate = \Carbon\Carbon::parse($result['rate_date'])->locale('es')->translatedFormat('l d \d\e F');
-                $formattedActivationDate = \Carbon\Carbon::parse($result['date'])->locale('es')->translatedFormat('l d \d\e F');
-                return back()->with('success', "¡Tasa de {$result['rate']} Bs. (valor {$formattedRateDate}) programada para activarse el {$formattedActivationDate} a las 12:01 am!");
+                $formattedRateDate = \Carbon\Carbon::parse($result['date'])->locale('es')->translatedFormat('l d \d\e F');
+                $formattedActivationDate = \Carbon\Carbon::parse($result['activation_date'])->locale('es')->translatedFormat('l d \d\e F');
+                return back()->with('success', "¡Tasa de {$result['rate']} Bs. (valor {$formattedRateDate}) se activará el {$formattedActivationDate}!");
             }
 
             return back()->with('success', '¡Tasa procesada con éxito!');

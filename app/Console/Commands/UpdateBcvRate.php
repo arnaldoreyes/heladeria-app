@@ -31,7 +31,7 @@ class UpdateBcvRate extends Command
         $this->info('Iniciando extracción de tasa del BCV...');
 
         // 1. Promover tasa programada si hoy ya es el día
-        $activeRate = $scraperService->resolveOperativeRate();
+        $activeRate = $scraperService->promoteScheduledRateIfApplicable();
         $this->info("Tasa activa actual en BD: {$activeRate} Bs.");
 
         // 2. Intentar scraping para buscar actualizaciones
@@ -51,7 +51,7 @@ class UpdateBcvRate extends Command
             if ($result['status'] === 'activated_today') {
                 $this->info("Tasa de hoy activada inmediatamente: {$result['rate']} Bs.");
             } elseif ($result['status'] === 'scheduled_future') {
-                $this->info("Tasa de {$result['rate']} Bs. programada para entrar en vigencia el {$result['date']}.");
+                $this->info("Tasa de {$result['rate']} Bs. (valor {$result['date']}) entrará en vigencia el {$result['activation_date']}.");
             } else {
                 $this->info("La tasa obtenida ({$result['rate']} Bs. para el {$result['date']}) no requiere cambios en este momento.");
             }

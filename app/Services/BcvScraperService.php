@@ -152,13 +152,17 @@ class BcvScraperService
             Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
             return ['status' => 'activated_today', 'rate' => $rateValue, 'date' => $rateDate];
         } else {
+            $activationDate = Carbon::tomorrow('America/Caracas')->format('Y-m-d');
+
             Setting::updateOrCreate(['key' => 'bcv_next_rate'], ['value' => $rateValue]);
-            Setting::updateOrCreate(['key' => 'bcv_next_date'], ['value' => $rateDate]);
+            Setting::updateOrCreate(['key' => 'bcv_next_date'], ['value' => $activationDate]);
+            Setting::updateOrCreate(['key' => 'bcv_next_value_date'], ['value' => $rateDate]);
 
             return [
                 'status' => 'scheduled_future',
                 'rate' => $rateValue,
                 'date' => $rateDate,
+                'activation_date' => $activationDate,
             ];
         }
     }
@@ -166,6 +170,25 @@ class BcvScraperService
     /**
      * Verifica si hay una tasa programada que ya deba entrar en vigencia y la promueve.
      */
+    public function promoteScheduledRateIfApplicable(): float
+    {
+        $nextRate = Setting::where('key', 'bcv_next_rate')->value('value');
+        $nextDate = Setting::where('key', 'bcv_next_date')->value('value');
+        $today = Carbon::today('America/Caracas')->format('Y-m-d');
+
+        if ($nextRate !== null && $nextDate !== null && $today >= $nextDate) {
+            // Promover
+            Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $nextRate]);
+            // Borrar temporales
+            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
+            Cache::forget('tasa_bcv_global');
+            return (float) $nextRate;
+        }
+
+        $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
+        return (float) ($lastRate ?? 1.0);
+    }
+
     public function resolveOperativeRate(): array
     {
         $today = Carbon::today('America/Caracas')->format('Y-m-d');

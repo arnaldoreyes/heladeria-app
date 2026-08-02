@@ -13,6 +13,13 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 
 ---
 
+## [1.0.03] - 2026-08-02
+
+### Fixed
+
+-   Correcciones en el scrapper de la tasa BCV. Cambios en los archivos BcvScraperService, UpdateBcvRate y SettingController.
+
+
 ## [1.0.02] - 2026-08-02
 
 ### Fixed
