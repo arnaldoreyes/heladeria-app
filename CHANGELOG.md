@@ -1,4 +1,4 @@
-# Historial de Cambios — Ice King
+# Historial de Cambios — Ice King 
 
 Registro de cambios importantes hechos al sistema, en lenguaje simple.
 
@@ -12,6 +12,12 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 - **Removed** — algo que se eliminó.
 
 ---
+
+## [1.0.01] - 2026-08-02
+
+### Fixed
+
+- Comentado de linea en el Dockerfile que reemplazaba el archivo de configuración de PHP-FPM (`www.conf`) por uno propio, porque no funcionaba y causaba errores en producción.
 
 ## [1.0.0] - 2026-08-02
 

@@ -24,8 +24,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Configuración de OPcache para Producción (archivo versionado, no generado inline)
 COPY docker/app/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
-# Pool de PHP-FPM, reemplaza el www.conf default de la imagen
-COPY docker/app/www.conf /usr/local/etc/php-fpm.d/www.conf
+# Pool de PHP-FPM, reemplaza el www.conf default de la imagen [NO FUNCIONA - CLAUDE NO DEBE TOCARLO]
+# COPY docker/app/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 # Evitar errores de permisos en Git
 RUN git config --global --add safe.directory '*'
