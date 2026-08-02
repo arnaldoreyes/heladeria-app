@@ -13,6 +13,16 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 
 ---
 
+## [1.0.02] - 2026-08-02
+
+### Fixed
+
+-  Correccion del causante del error 502 en produccion, el problema era en el docker-compose.yml, Claude habia borrado las conexion publica del contenedor app y web.
+
+### Changed
+
+-  Devolver comentado de linea en el dockerfile del commit anterior.
+
 ## [1.0.01] - 2026-08-02
 
 ### Fixed
