@@ -50,12 +50,8 @@ export default defineConfig({
                 ]
             },
             workbox: {
-                navigateFallback: '/',
                 globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
                 cleanupOutdatedCaches: true,
-                modifyURLPrefix: {
-                    'manifest.webmanifest': 'build/manifest.webmanifest'
-                },
                 runtimeCaching: [
                     {
                         urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

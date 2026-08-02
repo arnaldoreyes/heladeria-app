@@ -152,15 +152,13 @@ class BcvScraperService
             Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
             return ['status' => 'activated_today', 'rate' => $rateValue, 'date' => $rateDate];
         } else {
-            // Si la tasa es futura (ej: lunes o martes publicado el viernes), se programa para mañana a las 12:01 am
-            $activationDate = Carbon::tomorrow('America/Caracas')->format('Y-m-d');
             Setting::updateOrCreate(['key' => 'bcv_next_rate'], ['value' => $rateValue]);
-            Setting::updateOrCreate(['key' => 'bcv_next_date'], ['value' => $activationDate]);
+            Setting::updateOrCreate(['key' => 'bcv_next_date'], ['value' => $rateDate]);
+
             return [
                 'status' => 'scheduled_future',
                 'rate' => $rateValue,
-                'rate_date' => $rateDate,
-                'date' => $activationDate
+                'date' => $rateDate,
             ];
         }
     }
@@ -168,22 +166,22 @@ class BcvScraperService
     /**
      * Verifica si hay una tasa programada que ya deba entrar en vigencia y la promueve.
      */
-    public function promoteScheduledRateIfApplicable(): float
+    public function resolveOperativeRate(): array
     {
-        $nextRate = Setting::where('key', 'bcv_next_rate')->value('value');
-        $nextDate = Setting::where('key', 'bcv_next_date')->value('value');
         $today = Carbon::today('America/Caracas')->format('Y-m-d');
 
-        if ($nextRate !== null && $nextDate !== null && $today >= $nextDate) {
-            // Promover
+        $nextRate = Setting::where('key', 'bcv_next_rate')->value('value');
+        $nextDate = Setting::where('key', 'bcv_next_date')->value('value');
+
+        if ($nextRate !== null && $nextDate !== null && $nextDate <= $today) {
             Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $nextRate]);
-            // Borrar temporales
             Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
-            Cache::forget('tasa_bcv_global');
-            return (float) $nextRate;
+
+            return ['rate' => (float) $nextRate, 'date' => $nextDate, 'promoted' => true];
         }
 
         $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
-        return (float) ($lastRate ?? 1.0);
+
+        return ['rate' => (float) ($lastRate ?? 1.0), 'date' => null, 'promoted' => false];
     }
 }

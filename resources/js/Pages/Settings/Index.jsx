@@ -84,15 +84,12 @@ export default function Index({ config }) {
                     <h1 className="font-headline-lg text-headline-lg text-on-background dark:text-dark-on-surface font-bold tracking-tight">
                         Configuración General
                     </h1>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant dark:text-dark-on-surface-variant mt-1">
-                        Control de variables globales del negocio, tasas de cambio y márgenes financieros.
-                    </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="w-full">
                     {/* TARJETA ÚNICA PRINCIPAL DE CONFIGURACIÓN */}
                     <div className="bg-surface-container-lowest dark:bg-dark-surface border border-outline-variant dark:border-dark-outline rounded-xl p-4 sm:p-6 shadow-sm flex flex-col gap-6 w-full">
-                        
+
                         {/* SECCIÓN 1: TASA DE CAMBIO (REFERENCIA CAMBIARIA BCV) */}
                         <div className="flex flex-col gap-4">
                             <h3 className="font-label-lg text-primary dark:text-dark-primary font-black uppercase tracking-widest text-xs flex items-center gap-2 border-b dark:border-dark-outline pb-3">
@@ -104,7 +101,7 @@ export default function Index({ config }) {
                             <div className="p-3 rounded-lg bg-primary/5 dark:bg-dark-primary/10 border border-primary/20 dark:border-dark-primary/30 flex items-center justify-between gap-2 flex-wrap text-xs">
                                 <div className="flex items-center gap-1.5 text-on-surface dark:text-white font-bold">
                                     <span className="material-symbols-outlined text-primary dark:text-dark-primary text-[18px]">info</span>
-                                    <span>Dólar BCV Oficial (Scraping):</span>
+                                    <span>Dólar BCV:</span>
                                 </div>
                                 <span className="font-black text-primary dark:text-dark-primary bg-primary/10 dark:bg-dark-primary/20 px-2.5 py-1 rounded-md">
                                     Tasa actual: {config.bcv_next_rate ? `${Number(config.bcv_next_rate).toFixed(2)} Bs.` : config.live_bcv_rate ? `${Number(config.live_bcv_rate).toFixed(2)} Bs.` : 'No disponible'}
@@ -186,14 +183,10 @@ export default function Index({ config }) {
                                 Regla de Distribución de Caja
                             </h3>
 
-                            <p className="text-xs text-on-surface-variant dark:text-dark-on-surface-variant leading-relaxed">
-                                Porcentajes automáticos para la separación del dinero bruto al cerrar caja (deben sumar 100%).
-                            </p>
-
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start mt-1">
                                 {/* Porcentaje Ganancia Personal */}
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Tu Ganancia ({data.profit_percentage}%)</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Ganancia ({data.profit_percentage}%)</label>
                                     <div className="relative h-10">
                                         <input
                                             type="text"

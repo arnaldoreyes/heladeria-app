@@ -21,16 +21,11 @@ RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd opcache
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Configuración de OPcache para Producción
-# Esto le dice a PHP que mantenga el código pre-compilado en RAM
-RUN { \
-    echo 'opcache.memory_consumption=128'; \
-    echo 'opcache.interned_strings_buffer=8'; \
-    echo 'opcache.max_accelerated_files=4000'; \
-    echo 'opcache.revalidate_freq=2'; \
-    echo 'opcache.fast_shutdown=1'; \
-    echo 'opcache.enable_cli=1'; \
-    } > /usr/local/etc/php/conf.d/opcache-recommended.ini
+# Configuración de OPcache para Producción (archivo versionado, no generado inline)
+COPY docker/app/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+
+# Pool de PHP-FPM, reemplaza el www.conf default de la imagen
+COPY docker/app/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 # Evitar errores de permisos en Git
 RUN git config --global --add safe.directory '*'

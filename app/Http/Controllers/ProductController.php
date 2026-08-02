@@ -20,30 +20,29 @@ class ProductController extends Controller
     {
         $products = Product::with('category')->latest()->get();
         
-        $restockHistoryRows = Restock::select(
-            DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month_key"),
-            DB::raw("COUNT(*) as restocks_count"),
-            DB::raw("COALESCE(SUM(total_usd), 0) as total_usd"),
-            DB::raw("COALESCE(SUM(total_bs), 0) as total_bs")
-        )
-        ->groupBy('month_key')
-        ->orderByDesc('month_key')
-        ->get();
+        // Antes: 1 query de agregación (GROUP BY DATE_FORMAT, no indexable)
+        // + 1 query adicional POR CADA MES de historial (N+1).
+        // Ahora: 1 sola query total, sin importar cuántos meses existan.
+        // Con el volumen de restocks de este negocio, traer todo y agrupar
+        // en PHP es más barato que N idas y vueltas a la base de datos.
+        $restockHistory = Restock::with('items.product')
+            ->latest()
+            ->get()
+            ->groupBy(fn ($restock) => $restock->created_at->format('Y-m'))
+            ->map(function ($restocksInMonth, $monthKey) {
+                $date = Carbon::createFromFormat('Y-m', $monthKey)->locale('es');
 
-        $restockHistory = $restockHistoryRows->map(function($row) {
-            $date = Carbon::createFromFormat('Y-m', $row->month_key)->locale('es');
-            return [
-                'id' => $row->month_key,
-                'month_name' => ucfirst($date->translatedFormat('F Y')),
-                'restocks_count' => (int) $row->restocks_count,
-                'total_usd' => (float) $row->total_usd,
-                'total_bs' => (float) $row->total_bs,
-                'restocks' => Restock::with('items.product')
-                    ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$row->month_key])
-                    ->latest()
-                    ->get()
-            ];
-        })->values();
+                return [
+                    'id' => $monthKey,
+                    'month_name' => ucfirst($date->translatedFormat('F Y')),
+                    'restocks_count' => $restocksInMonth->count(),
+                    'total_usd' => (float) $restocksInMonth->sum('total_usd'),
+                    'total_bs' => (float) $restocksInMonth->sum('total_bs'),
+                    'restocks' => $restocksInMonth->values(),
+                ];
+            })
+            ->sortKeysDesc()
+            ->values();
 
         $categories = \Illuminate\Support\Facades\Cache::remember('categories.all', 3600, function () {
             return \App\Models\Category::all()->values();
@@ -152,6 +151,7 @@ class ProductController extends Controller
                     'restock_id' => $restock->id,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
+                    'cost_usd' => $item['cost_usd'] ?? null,
                 ]);
 
                 $product = Product::find($item['product_id']);

@@ -129,7 +129,7 @@ export default function Finances({ analytics, history, global_stats, current_wee
                         <div className="flex items-center justify-between border-b dark:border-dark-outline pb-3 mb-3">
                             <h3 className="text-xs font-black text-primary dark:text-dark-primary uppercase tracking-widest flex items-center gap-1.5">
                                 <span className="material-symbols-outlined text-[18px]">equalizer</span>
-                                Volumen Semanal (Semana Actual)
+                                Volumen Semanal
                             </h3>
                             <span className="text-[10px] font-black bg-primary/10 text-primary dark:bg-dark-primary/10 dark:text-dark-primary px-2.5 py-1 rounded-md uppercase tracking-wider">
                                 {current_week_volume?.label || 'Semana Actual'}
@@ -248,7 +248,7 @@ export default function Finances({ analytics, history, global_stats, current_wee
                                         {/* DESGLOSE DESPLEGABLE CON ACORDEONES INTERNOS */}
                                         {expandedMonth === month.id && (
                                             <div className="p-4 sm:p-5 bg-surface-container-lowest dark:bg-dark-background border-t border-outline-variant/50 dark:border-dark-outline animate-fade-in flex flex-col gap-4">
-                                                
+
                                                 {/* ACORDEÓN 1: HISTÓRICO DE SEMANAS POR MES (VOLUMEN SEMANAL) */}
                                                 {month.weekly_volume && Object.keys(month.weekly_volume).length > 0 && (
                                                     <div className="bg-surface-container-low dark:bg-dark-surface rounded-xl border border-outline-variant/40 dark:border-dark-outline overflow-hidden">

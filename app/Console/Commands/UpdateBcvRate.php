@@ -31,7 +31,7 @@ class UpdateBcvRate extends Command
         $this->info('Iniciando extracción de tasa del BCV...');
 
         // 1. Promover tasa programada si hoy ya es el día
-        $activeRate = $scraperService->promoteScheduledRateIfApplicable();
+        $activeRate = $scraperService->resolveOperativeRate();
         $this->info("Tasa activa actual en BD: {$activeRate} Bs.");
 
         // 2. Intentar scraping para buscar actualizaciones

@@ -4,11 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use Illuminate\Support\Facades\Cache; 
-use Illuminate\Support\Facades\Http;
 use App\Models\Setting;
-use App\Services\BcvScraperService;
-use Carbon\Carbon;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -21,22 +17,17 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $settings = Setting::whereIn('key', ['bcv_mode', 'bcv_manual_rate', 'last_bcv_rate', 'profit_percentage', 'business_percentage'])
+        $settings = Setting::whereIn('key', ['bcv_mode', 'profit_percentage', 'business_percentage'])
                            ->pluck('value', 'key')->toArray();
 
         $mode = $settings['bcv_mode'] ?? 'auto';
-        $manualRate = (float) ($settings['bcv_manual_rate'] ?? 0);
         $profitPercentage = (float) ($settings['profit_percentage'] ?? 40);
         $businessPercentage = (float) ($settings['business_percentage'] ?? 60);
 
-        if ($mode === 'manual' && $manualRate > 0) {
-            $tasaFinal = $manualRate;
-        } else {
-            $tasaFinal = (float) ($settings['last_bcv_rate'] ?? 1);
-            if ($tasaFinal <= 0) {
-                $tasaFinal = 1.0;
-            }
-        }
+        // Única fuente de verdad para la tasa operativa: CurrencyService.
+        // No se reimplementa aquí para evitar dos escrituras con forma distinta
+        // bajo la misma clave de caché 'tasa_bcv_global'.
+        $tasaFinal = app(\App\Services\CurrencyService::class)->getCurrentRate();
 
         return [
             ...parent::share($request),
