@@ -12,8 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('bcv:update-rate')->weekdays()->at('16:00');
-        $schedule->command('bcv:update-rate')->weekdays()->at('18:00');
+        $schedule->command('bcv:update-rate')->dailyAt('16:00');
+        $schedule->command('bcv:update-rate')->dailyAt('18:00');
 
         // Corre 7 días a la semana: solo promueve lo que ya está guardado,
         // no hace scraping. Precalienta la tasa antes de que abra la tienda.

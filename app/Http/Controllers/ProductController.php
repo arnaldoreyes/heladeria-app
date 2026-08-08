@@ -44,9 +44,7 @@ class ProductController extends Controller
             ->sortKeysDesc()
             ->values();
 
-        $categories = \Illuminate\Support\Facades\Cache::remember('categories.all', 3600, function () {
-            return \App\Models\Category::all()->values();
-        });
+        $categories = \App\Models\Category::all()->values();
 
         return inertia('Products/Index', [
             'products' => $products,

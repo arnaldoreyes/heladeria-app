@@ -13,6 +13,20 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 
 ---
 
+## [1.0.04] - 2026-08-08
+
+### Fixed
+
+- Correccion del scrapper de la tasa BCV para que se actualice autmatomaticamente.
+- Correccion de funcionalidades de edicion y borrado masivo de productos en la vista de productos.
+- Correccion del selector de categorias del modal de edicion/creacion de productos.
+- Ajustes en las vistas de productos y el archivo app.
+
+### Added
+
+-   Nuevo archivo de opcache para entorno de desarrollo.
+
+
 ## [1.0.03] - 2026-08-02
 
 ### Fixed

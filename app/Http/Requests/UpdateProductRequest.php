@@ -11,6 +11,16 @@ class UpdateProductRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'stock' => $this->input('stock') === '' || $this->input('stock') === null ? 0 : (int) $this->input('stock'),
+            'price_bs' => $this->input('price_bs') === '' || $this->input('price_bs') === null ? 0 : (float) str_replace(',', '.', $this->input('price_bs')),
+            'price_usd' => $this->input('price_usd') === '' || $this->input('price_usd') === null ? 0 : (float) str_replace(',', '.', $this->input('price_usd')),
+            'cost_usd' => $this->input('cost_usd') === '' || $this->input('cost_usd') === null ? null : (float) str_replace(',', '.', $this->input('cost_usd')),
+        ]);
+    }
+
     public function rules(): array
     {
         return [

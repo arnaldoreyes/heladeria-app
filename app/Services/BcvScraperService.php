@@ -43,12 +43,13 @@ class BcvScraperService
                 return null;
             }
 
-            $html = $response->body();
+            // Limitamos a 500KB para prevenir OOM si el BCV envía una respuesta infinita
+            $html = substr($response->body(), 0, 500000);
 
             // 2. Cargamos el HTML en el DOM parser de PHP
             libxml_use_internal_errors(true);
             $dom = new DOMDocument();
-            $dom->loadHTML($html);
+            $dom->loadHTML($html, LIBXML_NOBLANKS | LIBXML_COMPACT);
             libxml_clear_errors();
 
             $xpath = new DOMXPath($dom);
@@ -133,7 +134,8 @@ class BcvScraperService
     {
         $rateValue = $bcvData['rate'];
         $rateDate = $bcvData['date'];
-        $today = Carbon::today('America/Caracas')->format('Y-m-d');
+        $todayCarbon = Carbon::today('America/Caracas');
+        $today = $todayCarbon->format('Y-m-d');
         $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
 
         // Siempre guardamos la última tasa oficial leída del sitio del BCV para fines informativos
@@ -146,10 +148,11 @@ class BcvScraperService
             return ['status' => 'ignored_same', 'rate' => $rateValue, 'date' => $rateDate];
         }
 
-        if ($rateDate <= $today) {
+        // Si es fin de semana, forzamos la activación de la tasa del lunes porque el comercio la usa sábado y domingo.
+        if ($rateDate <= $today || $todayCarbon->isWeekend()) {
             Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $rateValue]);
             // Limpiar programación futura
-            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
+            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date', 'bcv_next_value_date'])->delete();
             return ['status' => 'activated_today', 'rate' => $rateValue, 'date' => $rateDate];
         } else {
             $activationDate = Carbon::tomorrow('America/Caracas')->format('Y-m-d');

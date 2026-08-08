@@ -22,6 +22,7 @@ export default function Index({ auth, products, categories = [], restockHistory 
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [bulkPriceBs, setBulkPriceBs] = useState('');
     const [bulkPriceUsd, setBulkPriceUsd] = useState('');
+    const [bulkCostUsd, setBulkCostUsd] = useState('');
     const [bulkStock, setBulkStock] = useState('');
 
     // --- ESTADOS DE NUEVA REPOSICIÓN (CARRITO INVERTIDO & ESTIMACIÓN DUAL) ---
@@ -980,6 +981,22 @@ export default function Index({ auth, products, categories = [], restockHistory 
                 </div>
             )}
 
+            {isBulkDeleteModalOpen && (
+                <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
+                    <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-6 w-full max-w-sm shadow-2xl border border-error/30 dark:border-error/30 text-center">
+                        <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-4 mt-2">
+                            <span className="material-symbols-outlined text-[32px]">warning</span>
+                        </div>
+                        <h3 className="font-headline-md text-on-surface dark:text-dark-on-surface font-black uppercase text-lg tracking-widest mb-2">¿Eliminar {selectedIds.length} Productos?</h3>
+                        <p className="text-sm text-on-surface-variant mb-6">Esta acción no se puede deshacer.</p>
+                        <div className="flex justify-center gap-3">
+                            <button onClick={() => setIsBulkDeleteModalOpen(false)} className="px-6 py-2.5 text-on-surface-variant font-black text-xs uppercase hover:bg-surface-container-high rounded-lg transition-all border border-outline-variant">Cancelar</button>
+                            <button onClick={handleBulkDelete} className="px-6 py-2.5 bg-error text-onError font-black text-xs uppercase rounded-lg hover:opacity-90 shadow-md">Sí, Eliminar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isCreateModalOpen && (
                 <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in transition-all">
                     <div className="bg-surface-container-lowest dark:bg-dark-surface rounded-xl p-lg w-full max-w-md shadow-2xl border dark:border-dark-outline">
@@ -1097,7 +1114,13 @@ export default function Index({ auth, products, categories = [], restockHistory 
                                         const newCostUsd = document.getElementById(`edit_cost_usd_${product.id}`).value;
                                         const newPriceBs = document.getElementById(`edit_price_bs_${product.id}`).value;
                                         const newPriceUsd = document.getElementById(`edit_price_usd_${product.id}`).value;
-                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, cost_usd: newCostUsd, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: newCategory }, { onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); } });
+                                        router.put(route('products.update', product.id), { name: newName, stock: newStock, cost_usd: newCostUsd, price_bs: newPriceBs, price_usd: newPriceUsd, category_id: newCategory }, { 
+                                            onSuccess: () => { setEditingId(null); showToast('¡Producto actualizado!'); },
+                                            onError: (errs) => {
+                                                const firstError = Object.values(errs)[0];
+                                                showToast(firstError || 'Error de validación al actualizar.');
+                                            }
+                                        });
                                     }} className="px-6 py-2 bg-primary dark:bg-dark-primary text-on-primary dark:text-dark-background font-black text-xs uppercase rounded-lg hover:opacity-90 shadow-md">Guardar</button>
                                 </div>
                             </div>

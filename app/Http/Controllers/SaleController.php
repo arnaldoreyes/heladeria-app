@@ -28,10 +28,20 @@ class SaleController extends Controller
             $businessPercentage = (float) (\App\Models\Setting::where('key', 'business_percentage')->value('value') ?? 60);
             $profitPercentage = (float) (\App\Models\Setting::where('key', 'profit_percentage')->value('value') ?? 40);
 
+            $consolidatedCart = [];
+            foreach ($request->validated('cart') as $item) {
+                $productId = $item['product']['id'];
+                if (isset($consolidatedCart[$productId])) {
+                    $consolidatedCart[$productId]['quantity'] += $item['quantity'];
+                } else {
+                    $consolidatedCart[$productId] = $item;
+                }
+            }
+
             $totalCostUsd = 0;
             $itemsToCreate = [];
 
-            foreach ($request->validated('cart') as $item) {
+            foreach ($consolidatedCart as $item) {
                 $product = Product::lockForUpdate()->find($item['product']['id']);
 
                 if (!$product || $product->stock < $item['quantity']) {
@@ -115,7 +125,17 @@ class SaleController extends Controller
         $totalCostUsd = 0;
         $itemsToCreate = [];
 
+        $consolidatedCart = [];
         foreach ($request->validated('cart') as $cartItem) {
+            $productId = $cartItem['product']['id'];
+            if (isset($consolidatedCart[$productId])) {
+                $consolidatedCart[$productId]['quantity'] += $cartItem['quantity'];
+            } else {
+                $consolidatedCart[$productId] = $cartItem;
+            }
+        }
+
+        foreach ($consolidatedCart as $cartItem) {
             $product = Product::lockForUpdate()->find($cartItem['product']['id']);
 
             if (!$product || $product->stock < $cartItem['quantity']) {
