@@ -6,26 +6,38 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('expenses', function (Blueprint $table) {
-            $table->id();
-            $table->string('concept');
+            $table->ulid('id')->primary();
+            // Multi-tenant y auditoría
+            $table->foreignUlid('business_id')->constrained()->cascadeOnDelete();
+            $table->foreignUlid('user_id')->nullable()->constrained()->nullOnDelete(); // Quién registró el gasto
+
+            $table->string('concept'); // Ej: "Pago de servicio de Internet", "Compra de bolsas"
+            $table->string('category')->default('Operativo'); // Operativo, Servicios, Nómina, Mantenimiento, etc.
+
+            // Montos y Tasa
             $table->decimal('amount_usd', 10, 2);
             $table->decimal('amount_bs', 12, 2);
-            $table->decimal('tasa_bcv', 10, 4)->nullable(); // Tasa vigente en el momento del gasto
+            $table->decimal('exchange_rate', 10, 4);
+            $table->timestamp('exchange_rate_date')->nullable();
+
+            // Método de pago de donde salió el dinero (Crucial para cuadres de caja)
+            $table->foreignUlid('payment_method_id')
+                ->nullable()
+                ->constrained('payment_methods')
+                ->nullOnDelete();
+
             $table->date('expense_date');
-            $table->string('category')->default('Operativo'); // Insumos, Servicios, Nómina, etc.
+            $table->text('notes')->nullable();
             $table->timestamps();
+
+            // Índice para reportes de gastos por rango de fecha y categoría
+            $table->index(['business_id', 'expense_date']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('expenses');

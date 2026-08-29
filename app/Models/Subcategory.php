@@ -5,27 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
-class Category extends Model
+class Subcategory extends Model
 {
     use HasUlids;
 
     protected $fillable = [
-        'business_id', 'name', 'description', 'icon', 'profit_percentage', 'reinvestment_percentage'
+        'business_id', 'category_id', 'name', 'description',  'icon', 'profit_percentage', 'reinvestment_percentage'
     ];
 
     protected $casts = [
         'profit_percentage' => 'decimal:2',
-        'reinvestment_percentage'=> 'decimal:2',
+        'reinvestment_percentage' => 'decimal:2',
     ];
 
-    public function business()
+    public function category()
     {
-        return $this->belongsTo(Business::class);
-    }
-
-    public function subcategories()
-    {
-        return $this->hasMany(Subcategory::class);
+        return $this->belongsTo(Category::class);
     }
 
     public function products()

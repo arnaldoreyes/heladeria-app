@@ -11,15 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('categories', function (Blueprint $table) {
+        Schema::create('businesses', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->foreignUlid('business_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->string('description')->nullable();
-            $table->string('icon')->default('tag');
-            $table->decimal('profit_percentage', 5, 2)->nullable();
-            $table->decimal('reinvestment_percentage', 5, 2)->nullable();
-            $table->softDeletes();
+            $table->string('slug')->unique();
+            $table->string('niche')->default('general');
+            $table->enum('status', ['active', 'suspended'])->default('active');
+            $table->string('logo_url')->nullable();
             $table->timestamps();
         });
     }
@@ -29,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('categories');
+        Schema::dropIfExists('businesses');
     }
 };
