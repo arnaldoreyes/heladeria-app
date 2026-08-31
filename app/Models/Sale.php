@@ -2,20 +2,39 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBusiness;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
 class Sale extends Model
 {
-    use HasUlids;
+    use BelongsToBusiness, HasUlids;
 
     protected $fillable = [
-        'business_id', 'user_id', 'customer_id', 'ticket_number', 'status',
-        'sale_type', 'payment_status', 'total_bs', 'total_usd', 'paid_usd',
-        'pending_usd', 'exchange_rate', 'exchange_rate_date', 'discount_bs',
-        'change_loss_bs', 'cost_usd', 'margin_usd', 'reinvestment_usd', 'profit_usd'
+        'business_id',
+        'user_id',
+        'customer_id',
+        'ticket_number',
+        'status',
+        'sale_type',
+        'payment_status',
+        'total_bs',
+        'total_usd',
+        'paid_usd',
+        'pending_usd',
+        'exchange_rate',
+        'exchange_rate_date',
+        'discount_bs',
+        'change_loss_bs',
+        'cost_usd',
+        'margin_usd',
+        'reinvestment_usd',
+        'profit_usd',
     ];
 
     protected $casts = [
@@ -33,65 +52,120 @@ class Sale extends Model
         'profit_usd' => 'decimal:2',
     ];
 
-    public function business()
+    // --- Relaciones ---
+    public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function customer()
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function items()
+    public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class);
     }
 
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(SalePayment::class);
     }
 
-    protected static function booted()
+    // --- Scopes Locales ---
+    public function scopeCompleted(Builder $query): Builder
     {
-        static::creating(function ($ticket) {
-            if (empty($ticket->ticket_number)) {
-                $ticket->ticket_number = self::generateUniqueTicketNumber();
+        return $query->where('status', 'completed');
+    }
+
+    public function scopePaid(Builder $query): Builder
+    {
+        return $query->where('payment_status', 'paid');
+    }
+
+    public function scopeToday(Builder $query): Builder
+    {
+        return $query->whereDate('created_at', Carbon::today());
+    }
+
+    public function scopeByDateRange(Builder $query, mixed $startDate, mixed $endDate): Builder
+    {
+        return $query->whereBetween('created_at', [$startDate, $endDate]);
+    }
+
+    // --- Scopes para Tipos de Venta ---
+    public function scopeCash(Builder $query): Builder
+    {
+        return $query->where('sale_type', 'cash');
+    }
+
+    public function scopeCredit(Builder $query): Builder
+    {
+        return $query->where('sale_type', 'credit');
+    }
+
+    // --- Scopes para Estados de Pago (Cuentas por Cobrar) ---
+    public function scopePendingPayment(Builder $query): Builder
+    {
+        return $query->whereIn('payment_status', ['pending', 'partial']);
+    }
+
+    public function scopeCancelled(Builder $query): Builder
+    {
+        return $query->where('status', 'cancelled');
+    }
+
+    // --- Scopes de Búsqueda Rápida ---
+    public function scopeByCustomer(Builder $query, string $customerId): Builder
+    {
+        return $query->where('customer_id', $customerId);
+    }
+
+    public function scopeSearchTicket(Builder $query, string $ticketNumber): Builder
+    {
+        return $query->where('ticket_number', 'LIKE', "%{$ticketNumber}%");
+    }
+
+    // --- Ciclo de Vida ---
+    protected static function booted(): void
+    {
+        static::creating(function (self $sale) {
+            if (empty($sale->ticket_number)) {
+                $sale->ticket_number = self::generateUniqueTicketNumber($sale);
             }
         });
     }
 
-    public static function generateUniqueTicketNumber(): string
+    // --- Generación de Ticket Multi-tenant ---
+    public static function generateUniqueTicketNumber(self $sale): string
     {
         $prefix = 'TKT';
-        $yearMonth = Carbon::now()->format('Ym'); // Ej: 202608
+        $yearMonth = Carbon::now()->format('Ym');
 
-        // Usamos una transacción con bloqueo para evitar duplicados concurrentes
-        return DB::transaction(function () use ($prefix, $yearMonth) {
-
-            // Buscar el último ticket creado que empiece con el prefijo y año/mes actual
-            $lastTicket = self::where('ticket_number', 'LIKE', "{$prefix}-{$yearMonth}-%")
-                ->orderBy('id', 'desc')
-                ->lockForUpdate() // Bloquea la fila temporalmente para asegurar concurrencia
+        return DB::transaction(function () use ($prefix, $yearMonth, $sale) {
+            $lastTicket = self::where('business_id', $sale->business_id)
+                ->where('ticket_number', 'LIKE', "{$prefix}-{$yearMonth}-%")
+                ->orderBy('created_at', 'desc')
+                ->lockForUpdate()
                 ->first();
 
             $nextSequence = 1;
 
             if ($lastTicket) {
-                // Extraer el último número secuencial del string (ej: de "TKT-202608-00045" saca "45")
                 $parts = explode('-', $lastTicket->ticket_number);
                 $lastSequence = (int) end($parts);
-                $nextSequence = $lastSequence + 1;
+                if ($lastSequence > 0) {
+                    $nextSequence = $lastSequence + 1;
+                }
             }
 
-            // Formatear con ceros a la izquierda (ej: 00001)
-            $sequentialCode = str_pad($nextSequence, 5, '0', STR_PAD_LEFT);
+            $sequentialCode = str_pad((string) $nextSequence, 5, '0', STR_PAD_LEFT);
 
             return "{$prefix}-{$yearMonth}-{$sequentialCode}";
         });

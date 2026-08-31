@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBusiness;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 class BusinessSetting extends Model
 {
-    use HasUlids;
+    use HasUlids, BelongsToBusiness;
 
     protected $fillable = [
         'business_id', 'bcv_mode', 'last_bcv_rate', 'bcv_manual_rate',
@@ -25,6 +26,7 @@ class BusinessSetting extends Model
         'bcv_last_updated_at' => 'datetime',
     ];
 
+    // --- Relaciones ---
     public function business()
     {
         return $this->belongsTo(Business::class);

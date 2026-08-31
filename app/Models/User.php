@@ -8,14 +8,13 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasUlids, HasRoles;
+    use HasFactory, Notifiable, HasUlids, HasRoles, HasApiTokens;
+    protected $guard_name = 'sanctum';
 
     protected $fillable = [
         'name', 'email', 'password', 'business_id'
@@ -34,4 +33,5 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Business::class);
     }
+
 }

@@ -2,23 +2,42 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBusiness;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SaleItem extends Model
 {
-    use HasUlids;
+    use BelongsToBusiness, HasUlids;
 
     protected $fillable = [
-        'business_id', 'sale_id', 'product_id', 'product_name_snapshot',
-        'quantity', 'unit_price_usd', 'unit_price_bs', 'unit_cost_usd',
-        'unit_cost_bs', 'subtotal_usd', 'cost_usd', 'margin_usd',
-        'subtotal_bs', 'cost_bs', 'margin_bs', 'profit_percentage', 'reinvestment_percentage',
-        'reinvestment_usd', 'profit_usd', 'reinvestment_bs', 'profit_bs'
+        'business_id',
+        'sale_id',
+        'product_id',
+        'product_name_snapshot',
+        'quantity',
+        'unit_price_usd',
+        'unit_price_bs',
+        'unit_cost_usd',
+        'unit_cost_bs',
+        'subtotal_usd',
+        'cost_usd',
+        'margin_usd',
+        'subtotal_bs',
+        'cost_bs',
+        'margin_bs',
+        'profit_percentage',
+        'reinvestment_percentage',
+        'reinvestment_usd',
+        'profit_usd',
+        'reinvestment_bs',
+        'profit_bs',
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'quantity' => 'decimal:3',
         'unit_price_usd' => 'decimal:2',
         'unit_price_bs' => 'decimal:2',
         'unit_cost_usd' => 'decimal:2',
@@ -37,13 +56,25 @@ class SaleItem extends Model
         'profit_bs' => 'decimal:2',
     ];
 
-    public function sale()
+    // --- Relaciones ---
+    public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
     }
 
-    public function product()
+    public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    // --- Scopes Locales ---
+    public function scopeByProduct(Builder $query, string $productId): Builder
+    {
+        return $query->where('product_id', $productId);
+    }
+
+    public function scopeBySale(Builder $query, string $saleId): Builder
+    {
+        return $query->where('sale_id', $saleId);
     }
 }
