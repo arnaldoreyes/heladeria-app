@@ -26,13 +26,14 @@ class SalePayment extends Model
     ];
 
     protected $casts = [
-        'amount_original' => 'decimal:2',
-        'amount_usd' => 'decimal:2',
-        'exchange_rate' => 'decimal:4',
+        'amount_original'   => 'decimal:2',
+        'amount_usd'        => 'decimal:2',
+        'exchange_rate'      => 'decimal:4',
         'exchange_rate_date' => 'datetime',
     ];
 
     // --- Relaciones ---
+
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
@@ -49,13 +50,24 @@ class SalePayment extends Model
     }
 
     // --- Scopes Locales ---
-    public function scopeByCurrency(Builder $query, string $currency): Builder
+
+    public function scopeByCurrency(Builder $query, ?string $currency = null): Builder
     {
-        return $query->where('currency', strtoupper($currency));
+        return $query->when($currency, fn ($q) => $q->where('currency', strtoupper($currency)));
     }
 
-    public function scopeBySale(Builder $query, string $saleId): Builder
+    public function scopeBySale(Builder $query, ?string $saleId = null): Builder
     {
-        return $query->where('sale_id', $saleId);
+        return $query->when($saleId, fn ($q) => $q->where('sale_id', $saleId));
+    }
+
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
+    {
+        return $query->when($search, function ($q) use ($search) {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('reference', 'LIKE', "%{$search}%")
+                    ->orWhere('notes', 'LIKE', "%{$search}%");
+            });
+        });
     }
 }

@@ -25,14 +25,15 @@ class RestockItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:3',
+        'quantity'      => 'decimal:3',
         'unit_cost_usd' => 'decimal:2',
-        'unit_cost_bs' => 'decimal:2',
-        'subtotal_usd' => 'decimal:2',
-        'subtotal_bs' => 'decimal:2',
+        'unit_cost_bs'  => 'decimal:2',
+        'subtotal_usd'  => 'decimal:2',
+        'subtotal_bs'   => 'decimal:2',
     ];
 
     // --- Relaciones ---
+
     public function restock(): BelongsTo
     {
         return $this->belongsTo(Restock::class);
@@ -44,13 +45,19 @@ class RestockItem extends Model
     }
 
     // --- Scopes Locales ---
-    public function scopeByRestock(Builder $query, string $restockId): Builder
+
+    public function scopeByRestock(Builder $query, ?string $restockId = null): Builder
     {
-        return $query->where('restock_id', $restockId);
+        return $query->when($restockId, fn ($q) => $q->where('restock_id', $restockId));
     }
 
-    public function scopeByProduct(Builder $query, string $productId): Builder
+    public function scopeByProduct(Builder $query, ?string $productId = null): Builder
     {
-        return $query->where('product_id', $productId);
+        return $query->when($productId, fn ($q) => $q->where('product_id', $productId));
+    }
+
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
+    {
+        return $query->when($search, fn ($q) => $q->where('product_name_snapshot', 'LIKE', "%{$search}%"));
     }
 }

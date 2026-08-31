@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class ExchangeRate extends Model
 {
-    use HasUlids, BelongsToBusiness;
+    use BelongsToBusiness, HasUlids;
 
     protected $fillable = [
         'business_id',
@@ -21,15 +21,13 @@ class ExchangeRate extends Model
     ];
 
     protected $casts = [
-        'rate' => 'decimal:4',
+        'rate'         => 'decimal:4',
         'effective_at' => 'datetime',
-        'is_current' => 'boolean',
+        'is_current'   => 'boolean',
     ];
 
     protected static function booted(): void
     {
-        // Al crear o actualizar, si esta tasa se marca como activa (is_current = true),
-        // se desmarcan las demás tasas del mismo tipo dentro del mismo negocio.
         static::saving(function (ExchangeRate $exchangeRate) {
             if ($exchangeRate->is_current && ($exchangeRate->isDirty('is_current') || $exchangeRate->wasRecentlyCreated)) {
                 DB::transaction(function () use ($exchangeRate) {
@@ -45,19 +43,19 @@ class ExchangeRate extends Model
 
     // --- Scopes ---
 
-    public function scopeCurrent(Builder $query): Builder
+    public function scopeCurrent(Builder $query, bool $isCurrent = true): Builder
     {
-        return $query->where('is_current', true);
+        return $query->where('is_current', $isCurrent);
     }
 
-    public function scopeByType(Builder $query, ?string $type): Builder
+    public function scopeByType(Builder $query, ?string $type = null): Builder
     {
         return $query->when($type, fn ($q) => $q->where('type', $type));
     }
 
-    public function scopeEffectiveOn(Builder $query, $date): Builder
+    public function scopeEffectiveOn(Builder $query, ?string $date = null): Builder
     {
-        return $query->whereDate('effective_at', '<=', $date);
+        return $query->when($date, fn ($q) => $q->whereDate('effective_at', '<=', $date));
     }
 
     // --- Helpers ---

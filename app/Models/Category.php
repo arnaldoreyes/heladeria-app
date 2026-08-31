@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 
 class Category extends Model
 {
-    use HasUlids, BelongsToBusiness;
+    use BelongsToBusiness, HasUlids;
 
     protected $fillable = [
         'business_id',
@@ -27,8 +27,8 @@ class Category extends Model
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'profit_percentage' => 'decimal:2',
+        'is_active'               => 'boolean',
+        'profit_percentage'       => 'decimal:2',
         'reinvestment_percentage' => 'decimal:2',
     ];
 
@@ -71,9 +71,9 @@ class Category extends Model
 
     // --- Scopes ---
 
-    public function scopeRoot(Builder $query): Builder
+    public function scopeRoot(Builder $query, bool $isRoot = true): Builder
     {
-        return $query->whereNull('parent_id');
+        return $isRoot ? $query->whereNull('parent_id') : $query->whereNotNull('parent_id');
     }
 
     public function scopeSubcategories(Builder $query): Builder
@@ -81,12 +81,12 @@ class Category extends Model
         return $query->whereNotNull('parent_id');
     }
 
-    public function scopeActive(Builder $query): Builder
+    public function scopeActive(Builder $query, bool $isActive = true): Builder
     {
-        return $query->where('is_active', true);
+        return $query->where('is_active', $isActive);
     }
 
-    public function scopeSearch(Builder $query, ?string $search): Builder
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
     {
         return $query->when($search, function ($q) use ($search) {
             $q->where(function ($sub) use ($search) {

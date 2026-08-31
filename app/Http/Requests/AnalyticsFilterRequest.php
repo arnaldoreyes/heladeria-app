@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AnalyticsFilterRequest extends FormRequest
@@ -29,13 +30,17 @@ class AnalyticsFilterRequest extends FormRequest
         return $this->input('business_id') ?? $this->user()?->business_id;
     }
 
-    public function getStartDate(): string
+    public function getStartDate(): Carbon
     {
-        return $this->input('start_date', now()->startOfMonth()->toDateTimeString());
+        return Carbon::parse(
+            $this->input('start_date', now()->startOfMonth())
+        );
     }
 
-    public function getEndDate(): string
+    public function getEndDate(): Carbon
     {
-        return $this->input('end_date', now()->endOfDay()->toDateTimeString());
+        return Carbon::parse(
+            $this->input('end_date', now()->endOfDay())
+        );
     }
 }

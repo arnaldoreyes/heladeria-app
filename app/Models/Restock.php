@@ -28,14 +28,15 @@ class Restock extends Model
     ];
 
     protected $casts = [
-        'exchange_rate' => 'decimal:4',
+        'exchange_rate'      => 'decimal:4',
         'exchange_rate_date' => 'datetime',
-        'total_usd' => 'decimal:2',
-        'total_bs' => 'decimal:2',
-        'purchased_at' => 'datetime',
+        'total_usd'          => 'decimal:2',
+        'total_bs'           => 'decimal:2',
+        'purchased_at'       => 'datetime',
     ];
 
     // --- Relaciones ---
+
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
@@ -52,18 +53,44 @@ class Restock extends Model
     }
 
     // --- Scopes Locales ---
-    public function scopeCompleted(Builder $query): Builder
+
+    public function scopeCompleted(Builder $query, bool|string|null $completed = true): Builder
     {
+        if (is_null($completed) || ! filter_var($completed, FILTER_VALIDATE_BOOLEAN)) {
+            return $query;
+        }
+
         return $query->where('status', 'completed');
     }
 
-    public function scopeBySupplier(Builder $query, string $supplierName): Builder
+    public function scopeBySupplier(Builder $query, ?string $supplierName = null): Builder
     {
-        return $query->where('supplier_name', 'LIKE', "%{$supplierName}%");
+        return $query->when($supplierName, fn ($q) => $q->where('supplier_name', 'LIKE', "%{$supplierName}%"));
     }
 
-    public function scopeByDateRange(Builder $query, mixed $startDate, mixed $endDate): Builder
+    public function scopeStartDate(Builder $query, ?string $startDate = null): Builder
     {
-        return $query->whereBetween('purchased_at', [$startDate, $endDate]);
+        return $query->when($startDate, fn ($q) => $q->whereDate('purchased_at', '>=', $startDate));
+    }
+
+    public function scopeEndDate(Builder $query, ?string $endDate = null): Builder
+    {
+        return $query->when($endDate, fn ($q) => $q->whereDate('purchased_at', '<=', $endDate));
+    }
+
+    public function scopeByDateRange(Builder $query, ?string $startDate = null, ?string $endDate = null): Builder
+    {
+        return $query->when($startDate && $endDate, fn ($q) => $q->whereBetween('purchased_at', [$startDate, $endDate]));
+    }
+
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
+    {
+        return $query->when($search, function ($q) use ($search) {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('supplier_name', 'LIKE', "%{$search}%")
+                    ->orWhere('invoice_number', 'LIKE', "%{$search}%")
+                    ->orWhere('notes', 'LIKE', "%{$search}%");
+            });
+        });
     }
 }

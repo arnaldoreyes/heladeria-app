@@ -13,6 +13,18 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 
 ---
 
+## [1.0.06] - 2026-08-31
+
+### Added
+
+- Creacion de controladores, rutas y configuraciones de las apis.
+
+## [1.0.05] - 2026-08-31
+
+### Added
+
+- Migracion, resource, request y modelos nuevos y corregidos para la version 2 del sitio, soporte api.
+
 ## [1.0.04] - 2026-08-08
 
 ### Fixed

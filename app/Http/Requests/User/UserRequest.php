@@ -36,4 +36,30 @@ class UserRequest extends FormRequest
             'role' => ['nullable', 'string', 'exists:roles,name'],
         ];
     }
+
+    protected function passedValidation(): void
+    {
+        $currentUser = $this->user();
+
+        // Si el usuario autenticado NO es superadmin, asignamos obligatoriamente su business_id
+        if (!$currentUser->hasRole('superadmin')) {
+            $businessId = app()->bound('current_business_id')
+                ? app('current_business_id')
+                : $currentUser->business_id;
+
+            $this->merge([
+                'business_id' => $businessId,
+            ]);
+        }
+    }
+
+    /**
+     * Devuelve los datos validados combinando los valores inyectados en passedValidation.
+     */
+    public function validated($key = null, $default = null): array
+    {
+        return array_merge(parent::validated(), [
+            'business_id' => $this->input('business_id'),
+        ]);
+    }
 }

@@ -38,21 +38,22 @@ class Sale extends Model
     ];
 
     protected $casts = [
-        'total_bs' => 'decimal:2',
-        'total_usd' => 'decimal:2',
-        'paid_usd' => 'decimal:2',
-        'pending_usd' => 'decimal:2',
-        'exchange_rate' => 'decimal:4',
+        'total_bs'           => 'decimal:2',
+        'total_usd'          => 'decimal:2',
+        'paid_usd'           => 'decimal:2',
+        'pending_usd'        => 'decimal:2',
+        'exchange_rate'      => 'decimal:4',
         'exchange_rate_date' => 'datetime',
-        'discount_bs' => 'decimal:2',
-        'change_loss_bs' => 'decimal:2',
-        'cost_usd' => 'decimal:2',
-        'margin_usd' => 'decimal:2',
-        'reinvestment_usd' => 'decimal:2',
-        'profit_usd' => 'decimal:2',
+        'discount_bs'        => 'decimal:2',
+        'change_loss_bs'     => 'decimal:2',
+        'cost_usd'           => 'decimal:2',
+        'margin_usd'         => 'decimal:2',
+        'reinvestment_usd'   => 'decimal:2',
+        'profit_usd'         => 'decimal:2',
     ];
 
     // --- Relaciones ---
+
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
@@ -79,27 +80,51 @@ class Sale extends Model
     }
 
     // --- Scopes Locales ---
-    public function scopeCompleted(Builder $query): Builder
+
+    public function scopeCompleted(Builder $query, bool|string|null $completed = true): Builder
     {
+        if (is_null($completed) || ! filter_var($completed, FILTER_VALIDATE_BOOLEAN)) {
+            return $query;
+        }
+
         return $query->where('status', 'completed');
     }
 
-    public function scopePaid(Builder $query): Builder
+    public function scopePaid(Builder $query, bool|string|null $paid = true): Builder
     {
+        if (is_null($paid) || ! filter_var($paid, FILTER_VALIDATE_BOOLEAN)) {
+            return $query;
+        }
+
         return $query->where('payment_status', 'paid');
     }
 
-    public function scopeToday(Builder $query): Builder
+    public function scopeToday(Builder $query, bool|string|null $today = true): Builder
     {
+        if (is_null($today) || ! filter_var($today, FILTER_VALIDATE_BOOLEAN)) {
+            return $query;
+        }
+
         return $query->whereDate('created_at', Carbon::today());
     }
 
-    public function scopeByDateRange(Builder $query, mixed $startDate, mixed $endDate): Builder
+    public function scopeStartDate(Builder $query, ?string $startDate = null): Builder
     {
-        return $query->whereBetween('created_at', [$startDate, $endDate]);
+        return $query->when($startDate, fn ($q) => $q->whereDate('created_at', '>=', $startDate));
+    }
+
+    public function scopeEndDate(Builder $query, ?string $endDate = null): Builder
+    {
+        return $query->when($endDate, fn ($q) => $q->whereDate('created_at', '<=', $endDate));
+    }
+
+    public function scopeByDateRange(Builder $query, ?string $startDate = null, ?string $endDate = null): Builder
+    {
+        return $query->when($startDate && $endDate, fn ($q) => $q->whereBetween('created_at', [$startDate, $endDate]));
     }
 
     // --- Scopes para Tipos de Venta ---
+
     public function scopeCash(Builder $query): Builder
     {
         return $query->where('sale_type', 'cash');
@@ -110,9 +135,14 @@ class Sale extends Model
         return $query->where('sale_type', 'credit');
     }
 
-    // --- Scopes para Estados de Pago (Cuentas por Cobrar) ---
-    public function scopePendingPayment(Builder $query): Builder
+    // --- Scopes para Cuentas por Cobrar ---
+
+    public function scopePendingPayment(Builder $query, bool|string|null $pending = true): Builder
     {
+        if (is_null($pending) || ! filter_var($pending, FILTER_VALIDATE_BOOLEAN)) {
+            return $query;
+        }
+
         return $query->whereIn('payment_status', ['pending', 'partial']);
     }
 
@@ -122,17 +152,24 @@ class Sale extends Model
     }
 
     // --- Scopes de Búsqueda Rápida ---
-    public function scopeByCustomer(Builder $query, string $customerId): Builder
+
+    public function scopeByCustomer(Builder $query, ?string $customerId = null): Builder
     {
-        return $query->where('customer_id', $customerId);
+        return $query->when($customerId, fn ($q) => $q->where('customer_id', $customerId));
     }
 
-    public function scopeSearchTicket(Builder $query, string $ticketNumber): Builder
+    public function scopeSearchTicket(Builder $query, ?string $ticketNumber = null): Builder
     {
-        return $query->where('ticket_number', 'LIKE', "%{$ticketNumber}%");
+        return $query->when($ticketNumber, fn ($q) => $q->where('ticket_number', 'LIKE', "%{$ticketNumber}%"));
+    }
+
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
+    {
+        return $query->when($search, fn ($q) => $q->where('ticket_number', 'LIKE', "%{$search}%"));
     }
 
     // --- Ciclo de Vida ---
+
     protected static function booted(): void
     {
         static::creating(function (self $sale) {
@@ -143,6 +180,7 @@ class Sale extends Model
     }
 
     // --- Generación de Ticket Multi-tenant ---
+
     public static function generateUniqueTicketNumber(self $sale): string
     {
         $prefix = 'TKT';

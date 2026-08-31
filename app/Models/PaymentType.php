@@ -23,7 +23,7 @@ class PaymentType extends Model
 
     protected $casts = [
         'requires_reference' => 'boolean',
-        'is_active' => 'boolean',
+        'is_active'          => 'boolean',
     ];
 
     protected static function booted(): void
@@ -44,17 +44,21 @@ class PaymentType extends Model
 
     // --- Scopes Locales ---
 
-    public function scopeActive(Builder $query, bool $active = true): Builder
+    public function scopeActive(Builder $query, bool|string|null $active = true): Builder
     {
-        return $query->where('is_active', $active);
+        if (is_null($active)) {
+            return $query;
+        }
+
+        return $query->where('is_active', filter_var($active, FILTER_VALIDATE_BOOLEAN));
     }
 
-    public function scopeByCode(Builder $query, ?string $code): Builder
+    public function scopeByCode(Builder $query, ?string $code = null): Builder
     {
         return $query->when($code, fn ($q) => $q->where('code', Str::slug($code, '_')));
     }
 
-    public function scopeSearch(Builder $query, ?string $search): Builder
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
     {
         return $query->when($search, function ($q) use ($search) {
             $q->where(function ($sub) use ($search) {

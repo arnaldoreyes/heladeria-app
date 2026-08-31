@@ -27,9 +27,9 @@ class InventoryMovement extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:3',
+        'quantity'       => 'decimal:3',
         'previous_stock' => 'decimal:3',
-        'new_stock' => 'decimal:3',
+        'new_stock'      => 'decimal:3',
     ];
 
     protected static function booted(): void
@@ -69,25 +69,45 @@ class InventoryMovement extends Model
 
     // --- Scopes Locales ---
 
-    public function scopeByType(Builder $query, ?string $type): Builder
+    public function scopeByType(Builder $query, ?string $type = null): Builder
     {
         return $query->when($type, fn ($q) => $q->where('type', $type));
     }
 
-    public function scopeByProduct(Builder $query, ?string $productId): Builder
+    public function scopeByProduct(Builder $query, ?string $productId = null): Builder
     {
         return $query->when($productId, fn ($q) => $q->where('product_id', $productId));
     }
 
-    public function scopeByUser(Builder $query, ?string $userId): Builder
+    public function scopeByUser(Builder $query, ?string $userId = null): Builder
     {
         return $query->when($userId, fn ($q) => $q->where('user_id', $userId));
     }
 
-    public function scopeByDateRange(Builder $query, ?string $startDate, ?string $endDate): Builder
+    public function scopeStartDate(Builder $query, ?string $startDate = null): Builder
+    {
+        return $query->when($startDate, fn ($q) => $q->whereDate('created_at', '>=', $startDate));
+    }
+
+    public function scopeEndDate(Builder $query, ?string $endDate = null): Builder
+    {
+        return $query->when($endDate, fn ($q) => $q->whereDate('created_at', '<=', $endDate));
+    }
+
+    public function scopeByDateRange(Builder $query, ?string $startDate = null, ?string $endDate = null): Builder
     {
         return $query->when($startDate && $endDate, function ($q) use ($startDate, $endDate) {
             $q->whereBetween('created_at', [$startDate, $endDate]);
+        });
+    }
+
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
+    {
+        return $query->when($search, function ($q) use ($search) {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('notes', 'LIKE', "%{$search}%")
+                    ->orWhereHas('product', fn ($p) => $p->where('name', 'LIKE', "%{$search}%")->orWhere('sku', 'LIKE', "%{$search}%"));
+            });
         });
     }
 }

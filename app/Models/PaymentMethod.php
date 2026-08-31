@@ -38,22 +38,26 @@ class PaymentMethod extends Model
 
     // --- Scopes Locales ---
 
-    public function scopeActive(Builder $query, bool $active = true): Builder
+    public function scopeActive(Builder $query, bool|string|null $active = true): Builder
     {
-        return $query->where('is_active', $active);
+        if (is_null($active)) {
+            return $query;
+        }
+
+        return $query->where('is_active', filter_var($active, FILTER_VALIDATE_BOOLEAN));
     }
 
-    public function scopeByCurrency(Builder $query, ?string $currency): Builder
+    public function scopeByCurrency(Builder $query, ?string $currency = null): Builder
     {
         return $query->when($currency, fn ($q) => $q->where('currency', strtoupper($currency)));
     }
 
-    public function scopeByType(Builder $query, ?string $paymentTypeId): Builder
+    public function scopeByType(Builder $query, ?string $paymentTypeId = null): Builder
     {
         return $query->when($paymentTypeId, fn ($q) => $q->where('payment_type_id', $paymentTypeId));
     }
 
-    public function scopeSearch(Builder $query, ?string $search): Builder
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
     {
         return $query->when($search, function ($q) use ($search) {
             $q->where(function ($sub) use ($search) {

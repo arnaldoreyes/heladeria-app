@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
-    use HasUlids, BelongsToBusiness;
+    use BelongsToBusiness, HasUlids;
 
     protected $fillable = [
         'business_id',
@@ -28,7 +28,7 @@ class Customer extends Model
 
     protected $casts = [
         'credit_limit_usd' => 'decimal:2',
-        'is_active' => 'boolean',
+        'is_active'        => 'boolean',
     ];
 
     // --- Accessors ---
@@ -51,17 +51,23 @@ class Customer extends Model
 
     // --- Scopes ---
 
-    public function scopeActive(Builder $query): Builder
+    public function scopeActive(Builder $query, bool $isActive = true): Builder
     {
-        return $query->where('is_active', true);
+        return $isActive
+            ? $query->where('is_active', true)
+            : $query->where('is_active', false);
     }
 
-    public function scopeWithCredit(Builder $query): Builder
+    public function scopeWithCredit(Builder $query, bool $hasCredit = true): Builder
     {
-        return $query->where('credit_limit_usd', '>', 0);
+        return $hasCredit
+            ? $query->where('credit_limit_usd', '>', 0)
+            : $query->where(function ($q) {
+                $q->whereNull('credit_limit_usd')->orWhere('credit_limit_usd', '<=', 0);
+            });
     }
 
-    public function scopeSearch(Builder $query, ?string $search): Builder
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
     {
         return $query->when($search, function ($q) use ($search) {
             $q->where(function ($sub) use ($search) {

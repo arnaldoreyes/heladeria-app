@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Expense extends Model
 {
-    use HasUlids, BelongsToBusiness;
+    use BelongsToBusiness, HasUlids;
 
     protected $fillable = [
         'business_id',
@@ -27,11 +27,11 @@ class Expense extends Model
     ];
 
     protected $casts = [
-        'amount_usd' => 'decimal:2',
-        'amount_bs' => 'decimal:2',
-        'exchange_rate' => 'decimal:4',
+        'amount_usd'         => 'decimal:2',
+        'amount_bs'          => 'decimal:2',
+        'exchange_rate'      => 'decimal:4',
         'exchange_rate_date' => 'datetime',
-        'expense_date' => 'date',
+        'expense_date'       => 'date',
     ];
 
     protected static function booted(): void
@@ -67,24 +67,34 @@ class Expense extends Model
 
     // --- Scopes ---
 
-    public function scopeByCategory(Builder $query, ?string $category): Builder
+    public function scopeByCategory(Builder $query, ?string $category = null): Builder
     {
         return $query->when($category, fn ($q) => $q->where('category', $category));
     }
 
-    public function scopeByDateRange(Builder $query, ?string $startDate, ?string $endDate): Builder
+    public function scopeByPaymentMethod(Builder $query, ?string $paymentMethod = null): Builder
+    {
+        return $query->when($paymentMethod, fn ($q) => $q->where('payment_method', $paymentMethod));
+    }
+
+    public function scopeStartDate(Builder $query, ?string $startDate = null): Builder
+    {
+        return $query->when($startDate, fn ($q) => $q->whereDate('expense_date', '>=', $startDate));
+    }
+
+    public function scopeEndDate(Builder $query, ?string $endDate = null): Builder
+    {
+        return $query->when($endDate, fn ($q) => $q->whereDate('expense_date', '<=', $endDate));
+    }
+
+    public function scopeByDateRange(Builder $query, ?string $startDate = null, ?string $endDate = null): Builder
     {
         return $query->when($startDate && $endDate, function ($q) use ($startDate, $endDate) {
             $q->whereBetween('expense_date', [$startDate, $endDate]);
         });
     }
 
-    public function scopeByPaymentMethod(Builder $query, ?string $paymentMethod): Builder
-    {
-        return $query->when($paymentMethod, fn ($q) => $q->where('payment_method', $paymentMethod));
-    }
-
-    public function scopeSearch(Builder $query, ?string $search): Builder
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
     {
         return $query->when($search, function ($q) use ($search) {
             $q->where(function ($sub) use ($search) {

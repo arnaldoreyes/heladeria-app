@@ -29,14 +29,15 @@ class Product extends Model
     ];
 
     protected $casts = [
-        'price_usd' => 'decimal:2',
-        'cost_usd' => 'decimal:2',
-        'stock' => 'decimal:3',
+        'price_usd'       => 'decimal:2',
+        'cost_usd'        => 'decimal:2',
+        'stock'           => 'decimal:3',
         'min_stock_alert' => 'decimal:3',
-        'is_active' => 'boolean',
+        'is_active'        => 'boolean',
     ];
 
     // --- Relaciones ---
+
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
@@ -53,30 +54,42 @@ class Product extends Model
     }
 
     // --- Scopes Locales ---
-    public function scopeActive(Builder $query): Builder
+
+    public function scopeActive(Builder $query, bool|string|null $active = true): Builder
     {
-        return $query->where('is_active', true);
+        if (is_null($active)) {
+            return $query;
+        }
+
+        return $query->where('is_active', filter_var($active, FILTER_VALIDATE_BOOLEAN));
     }
 
-    public function scopeLowStock(Builder $query): Builder
+    public function scopeLowStock(Builder $query, bool|string|null $lowStock = true): Builder
     {
+        if (is_null($lowStock) || ! filter_var($lowStock, FILTER_VALIDATE_BOOLEAN)) {
+            return $query;
+        }
+
         return $query->whereColumn('stock', '<=', 'min_stock_alert');
     }
 
-    public function scopeByCategory(Builder $query, string $categoryId): Builder
+    public function scopeByCategory(Builder $query, ?string $categoryId = null): Builder
     {
-        return $query->where('category_id', $categoryId);
+        return $query->when($categoryId, fn ($q) => $q->where('category_id', $categoryId));
     }
 
-    public function scopeSearch(Builder $query, string $search): Builder
+    public function scopeSearch(Builder $query, ?string $search = null): Builder
     {
-        return $query->where(function ($q) use ($search) {
-            $q->where('name', 'LIKE', "%{$search}%")
-                ->orWhere('sku', 'LIKE', "%{$search}%");
+        return $query->when($search, function ($q) use ($search) {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('sku', 'LIKE', "%{$search}%");
+            });
         });
     }
 
     // --- Ciclo de Vida ---
+
     protected static function booted(): void
     {
         static::creating(function (self $product) {
@@ -87,6 +100,7 @@ class Product extends Model
     }
 
     // --- Generación de SKU Multi-tenant ---
+
     private static function generateUniqueSku(self $product): string
     {
         $prefix = 'SKU';
