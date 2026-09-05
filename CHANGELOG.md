@@ -13,6 +13,18 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 
 ---
 
+## [1.1.1] - 2026-09-05
+
+### Fixed
+
+- Correccion en nombres del namespace
+- Correccion en los seeders, rutas y cors del sitio
+
+### Added
+
+- Crecion de comando para migrar de la bdd v1 a la v2
+- Creacion de ruta, request y funcion ene l controlador para el registro de usuarios
+
 ## [1.0.06] - 2026-08-31
 
 ### Added

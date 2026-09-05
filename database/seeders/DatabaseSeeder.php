@@ -24,7 +24,11 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             // DemoDataSeeder::class,
-            InitialDataSeeder::class,
+            
+            RoleAndPermissionSeeder::class,
+            PaymentTypeSeeder::class,
+            UserSeeder::class,
+            // InitialDataSeeder::class,
         ]);
     }
 }

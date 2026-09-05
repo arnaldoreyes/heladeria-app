@@ -1,6 +1,6 @@
 <?php
 
-namespacesuperadmin App\Http\Controllers\Api\V1\Analytics;
+namespace App\Http\Controllers\Api\V1\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AnalyticsFilterRequest;
