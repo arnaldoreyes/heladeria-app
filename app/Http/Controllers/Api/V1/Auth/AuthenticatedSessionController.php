@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\BusinessSetting;
 use App\Models\Role;
 use App\Models\User;
+use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthenticatedSessionController extends Controller
 {
+    use ApiResponse;
+
    public function register(RegisterRequest $request): JsonResponse
 {
     // 1. Extraer los datos ya validados por RegisterRequest
@@ -67,13 +70,13 @@ class AuthenticatedSessionController extends Controller
         ];
     });
 
-    return response()->json([
-        'message'      => 'Registro completado con éxito.',
+    return $this->successResponse([
         'access_token' => $data['token'],
         'token_type'   => 'Bearer',
         'expires_at'   => $data['expires_at']->toIso8601String(),
         'user'         => $this->formatUserData($data['user']),
-    ], 201);
+        'business'     => $this->formatBuisnessData($data['user']),
+    ], 'Registro completado con éxito.', 201);
 }
 
     public function login(Request $request): JsonResponse
@@ -92,6 +95,8 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        $user->load( 'roles', 'permissions', 'business.settings');
+
         $remember  = $request->boolean('remember');
         $expiresAt = $remember ? now()->addDays(30) : now()->addHours(8);
 
@@ -101,35 +106,37 @@ class AuthenticatedSessionController extends Controller
             expiresAt: $expiresAt
         )->plainTextToken;
 
-        return response()->json([
-            'message'      => 'Inicio de sesión exitoso.',
+        return $this->successResponse([
             'access_token' => $token,
             'token_type'   => 'Bearer',
             'expires_at'   => $expiresAt->toIso8601String(),
             'user'         => $this->formatUserData($user),
-        ]);
+            'business'     => $this->formatBuisnessData($user),
+        ], 'Inicio de sesión exitoso.');
     }
 
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
-
-        return response()->json(['message' => 'Sesión cerrada correctamente.']);
+        return $this->successResponse(null, 'Sesión cerrada correctamente.');
     }
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json([
+        return $this->successResponse([
             'user' => $this->formatUserData($request->user()),
         ]);
     }
 
     public function checkStatus(Request $request): JsonResponse
     {
-        return response()->json([
-            'user'  => $this->formatUserData($request->user()),
-            'token' => $request->bearerToken(),
-        ]);
+        return $this->successResponse([
+            'access_token' => $request->bearerToken(),
+            'token_type'   => 'Bearer',
+            'expires_at'   => $request->user()->currentAccessToken()->expires_at->toIso8601String(),
+            'user'         => $this->formatUserData($request->user()),
+            'business'     => $this->formatBuisnessData($request->user()),
+        ],  'Registro completado con éxito.',  201);
     }
 
     public function refresh(Request $request): JsonResponse
@@ -145,12 +152,11 @@ class AuthenticatedSessionController extends Controller
             expiresAt: $expiresAt
         )->plainTextToken;
 
-        return response()->json([
-            'message'      => 'Token renovado correctamente.',
+        return $this->successResponse([
             'access_token' => $newToken,
             'token_type'   => 'Bearer',
             'expires_at'   => $expiresAt->toIso8601String(),
-        ]);
+        ],  'Token renovado correctamente.');
     }
 
     private function formatUserData(User $user): array
@@ -159,9 +165,24 @@ class AuthenticatedSessionController extends Controller
             'id'          => $user->id,
             'name'        => $user->name,
             'email'       => $user->email,
-            'business_id' => $user->business_id,
             'roles'       => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name'),
+        ];
+    }
+    private function formatBuisnessData(User $user): array
+    {
+        return [
+            'id'   => $user->business->id,
+            'name' => $user->business->name,
+            'slug' => $user->business->slug,
+            'niche'  =>  $user->business->niche,
+            'status' =>  $user->business->status,            
+            'bcv_mode'                        =>  $user->business->settings->bcv_mode,
+            'default_profit_percentage'       => $user->business->settings->default_profit_percentage,
+            'default_reinvestment_percentage' => $user->business->settings->default_reinvestment_percentage,
+            'print_ticket_on_sale'            => $user->business->settings->print_ticket_on_sale,
+            'ticket_header_notes'             => $user->business->settings->ticket_header_notes,
+            'ticket_footer_notes'             => $user->business->settings->ticket_footer_notes,
         ];
     }
 }

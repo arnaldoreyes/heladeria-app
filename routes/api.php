@@ -64,7 +64,7 @@ Route::prefix('v1')->group(function () {
             Route::post('businesses/bulk-destroy', [BusinessController::class, 'bulkDestroy']);
             Route::apiResource('businesses', BusinessController::class)->only(['index', 'store', 'destroy']);
 
-            // Roles y Permisos (Intocables para el "own")
+            // Roles y Permisos (Intocables para el "owner")
             Route::apiResource('roles', RoleController::class);
             Route::get('permissions', [PermissionController::class, 'index']);
         });
@@ -72,7 +72,7 @@ Route::prefix('v1')->group(function () {
         // =========================================================================
         // 2. SUPERADMIN + OWN (Dueños y Superadmin)
         // =========================================================================
-        Route::middleware(['role:superadmin|own'])->group(function () {
+        Route::middleware(['role:superadmin|owner'])->group(function () {
 
             // Negocios (El owner solo puede ver y actualizar el suyo)
             Route::get('businesses/current', [BusinessController::class, 'current']);
@@ -123,7 +123,7 @@ Route::prefix('v1')->group(function () {
         // =========================================================================
         // 3. SUPERADMIN + OWN + CASHIER (Vendedores y todo el personal superior)
         // =========================================================================
-        Route::middleware(['role:superadmin|own|cashier'])->group(function () {
+        Route::middleware(['role:superadmin|owner|cashier'])->group(function () {
 
             // Productos y Categorías (Solo lectura para el cajero)
             Route::get('categories/tree', [CategoryController::class, 'tree']);
@@ -148,7 +148,7 @@ Route::prefix('v1')->group(function () {
     */
 
     /*
-    Route::middleware(['auth:sanctum', 'business.context', 'role:superadmin|own'])->prefix('analytics')->group(function () {
+    Route::middleware(['auth:sanctum', 'business.context', 'role:superadmin|owner'])->prefix('analytics')->group(function () {
 
         Route::get('dashboard', DashboardAnalyticsController::class);
 
