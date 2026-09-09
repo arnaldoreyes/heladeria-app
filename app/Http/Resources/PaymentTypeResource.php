@@ -16,10 +16,6 @@ class PaymentTypeResource extends JsonResource
             'code' => $this->code,
             'requires_reference' => (bool) $this->requires_reference,
             'is_active' => (bool) $this->is_active,
-
-            // Relaciones opcionales
-            'methods' => PaymentMethodResource::collection($this->whenLoaded('methods')),
-
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

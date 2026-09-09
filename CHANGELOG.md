@@ -12,6 +12,20 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 - **Removed** — algo que se eliminó.
 
 ---
+## [1.1.2] - 2026-09-09
+
+### Fixed
+
+- Correccion en retorno y funciones de payment method
+- correccion en rutas apis de pyent method
+- Se agregaron en el controlador las funciones masivas de payment method
+
+## [1.1.2] - 2026-09-08
+
+### Fixed
+
+- Correccion en roles de las rutas
+- Correccion en controlador de autenticacion, se agrego trait para normalizar respuestas de las rutas
 
 ## [1.1.1] - 2026-09-05
 

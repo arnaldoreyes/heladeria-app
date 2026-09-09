@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BusinessSetting extends Model
 {
-    use HasUlids, BelongsToBusiness;
+    use HasUlids;
 
     protected $fillable = [
         'business_id', 'bcv_mode', 'last_bcv_rate', 'bcv_manual_rate',

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Payment;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -24,7 +24,7 @@ class PaymentMethodRequest extends FormRequest
             'payment_type_id' => [
                 $isPost ? 'required' : 'sometimes',
                 'string',
-                Rule::exists('payment_types', 'id')->where(fn ($query) => $query->where('business_id', $businessId)),
+                Rule::exists('payment_types', 'id')->where(fn ($query) => $query->where('business_id', $businessId)->orWhereNull('business_id')),
             ],
             'name' => [
                 $isPost ? 'required' : 'sometimes',

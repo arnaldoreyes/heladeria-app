@@ -7,9 +7,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class PaymentMethodResource extends JsonResource
 {
+    
     public function toArray(Request $request): array
-    {
-        return [
+    {   return [
             'id' => $this->id,
             'business_id' => $this->business_id,
             'payment_type_id' => $this->payment_type_id,
@@ -26,7 +26,7 @@ class PaymentMethodResource extends JsonResource
             ],
 
             // Relaciones opcionales
-            'type' => new PaymentTypeResource($this->whenLoaded('type')),
+            'type' => $this->type,
 
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

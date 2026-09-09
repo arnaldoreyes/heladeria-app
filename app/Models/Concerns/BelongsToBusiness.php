@@ -26,7 +26,8 @@ trait BelongsToBusiness
             // 3. Si hay un negocio activo en el contenedor, aplicamos el filtro de seguridad
             if (auth()->check() && auth()->user()->business_id) {
                 $table = $builder->getModel()->getTable();
-                $builder->where("{$table}.business_id", auth()->user()->business_id);
+                $builder->where("{$table}.business_id", auth()->user()->business_id)
+                        ->orWhereNull("{$table}.business_id");
             }
         });
 

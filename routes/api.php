@@ -102,7 +102,9 @@ Route::prefix('v1')->group(function () {
             Route::post('payment-types/{paymentType}/toggleStatus', [PaymentTypeController::class, 'updateExchangeRate']);
             Route::apiResource('payment-types', PaymentTypeController::class);
 
+            // Rutas personalizadas / masivas
             Route::post('payment-methods/bulk-destroy', [PaymentMethodController::class, 'bulkDestroy']);
+            Route::post('payment-methods/bulk-status-update', [PaymentMethodController::class, 'bulkStatusUpdate']);
             Route::post('payment-methods/{paymentMethod}/toggleStatus', [PaymentMethodController::class, 'updateExchangeRate']);
             Route::apiResource('payment-methods', PaymentMethodController::class);
 
