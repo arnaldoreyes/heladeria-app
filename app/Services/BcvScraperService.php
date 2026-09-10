@@ -2,92 +2,102 @@
 
 namespace App\Services;
 
-use App\Models\Setting;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use DOMDocument;
 use DOMXPath;
 use Exception;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class BcvScraperService
 {
     /**
-     * Hace scraping a la página del BCV y retorna el valor oficial del USD como float.
+     * Realiza scraping a la página del BCV y retorna USD, EUR y Fecha Valor.
      *
-     * @return float|null
+     * @return array|null ['usd' => float, 'eur' => float, 'effective_date' => 'YYYY-MM-DD']
      */
-    public function getUsdRate(): ?float
-    {
-        $data = $this->getUsdData();
-        return $data ? $data['rate'] : null;
-    }
-
-    /**
-     * Hace scraping a la página del BCV y retorna un array con la tasa y la fecha de vigencia.
-     *
-     * @return array|null ['rate' => float, 'date' => 'YYYY-MM-DD']
-     */
-    public function getUsdData(): ?array
+    public function getRates(): ?array
     {
         try {
-            // 1. Hacemos la petición a la página del BCV con User-Agent
             $response = Http::withoutVerifying()
-                ->timeout(10) // 10 segundos de timeout
+                ->timeout(12)
                 ->withHeaders([
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 ])
                 ->get('https://www.bcv.org.ve/');
 
             if (!$response->successful()) {
+                Log::warning('BCV Scraper: La petición a la página oficial no fue exitosa.');
                 return null;
             }
 
-            // Limitamos a 500KB para prevenir OOM si el BCV envía una respuesta infinita
+            // Limitar a 500KB para proteger la memoria
             $html = substr($response->body(), 0, 500000);
 
-            // 2. Cargamos el HTML en el DOM parser de PHP
             libxml_use_internal_errors(true);
             $dom = new DOMDocument();
             $dom->loadHTML($html, LIBXML_NOBLANKS | LIBXML_COMPACT);
             libxml_clear_errors();
 
             $xpath = new DOMXPath($dom);
-            
-            // 3. Extraer la tasa del dólar (dentro del div #dolar)
-            $rateNodes = $xpath->query('//div[@id="dolar"]//div[contains(@class, "centrado")]/strong');
-            // 4. Extraer la fecha de vigencia (el primer span con la clase date-display-single)
+
+            // 1. Extraer Tasas
+            $usdRate = $this->extractRateByContainer($xpath, 'dolar');
+            $eurRate = $this->extractRateByContainer($xpath, 'euro');
+
+            // 2. Extraer Fecha Valor (ej: "Viernes, 04 Septiembre 2026")
             $dateNodes = $xpath->query('//span[@class="date-display-single"]');
+            $rawDate = $dateNodes->length > 0 ? trim($dateNodes->item(0)->nodeValue) : '';
+            $effectiveDate = $this->parseBcvDate($rawDate);
 
-            if ($rateNodes->length > 0) {
-                $rawRate = $rateNodes->item(0)->nodeValue;
-                $cleanRate = trim($rawRate);
-                $cleanRate = str_replace(',', '.', $cleanRate);
-                $cleanRate = preg_replace('/[^0-9.]/', '', $cleanRate);
-                $finalRate = (float) $cleanRate;
-
-                $rawDate = $dateNodes->length > 0 ? trim($dateNodes->item(0)->nodeValue) : '';
-                $parsedDate = $this->parseBcvDate($rawDate);
-
-                // Verificación de cordura
-                if ($finalRate > 1 && $finalRate < 5000) { 
-                    return [
-                        'rate' => $finalRate,
-                        'date' => $parsedDate ?? Carbon::today('America/Caracas')->format('Y-m-d'),
-                    ];
-                }
+            if (!$usdRate) {
+                Log::warning('BCV Scraper: No se pudo parsear el valor del USD.');
+                return null;
             }
 
-            return null;
+            return [
+                'usd' => $usdRate,
+                'eur' => $eurRate,
+                'effective_date' => $effectiveDate ?? Carbon::today('America/Caracas')->format('Y-m-d'),
+            ];
 
         } catch (Exception $e) {
+            Log::error('BCV Scraper Exception: ' . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Parsea la fecha de vigencia de la página del BCV (en español) a formato ISO (YYYY-MM-DD).
-     * Ejemplo: "Miércoles, 01 Julio  2026" -> "2026-07-01"
+     * Mantiene compatibilidad directa para consultas simples.
+     */
+    public function getUsdRate(): ?float
+    {
+        $data = $this->getRates();
+        return $data ? $data['usd'] : null;
+    }
+
+    /**
+     * Extrae y limpia el valor numérico de un contenedor HTML (ej: id="dolar" o id="euro").
+     */
+    protected function extractRateByContainer(DOMXPath $xpath, string $containerId): ?float
+    {
+        $nodes = $xpath->query("//div[@id='{$containerId}']//div[contains(@class, 'centrado')]/strong");
+
+        if ($nodes->length === 0) {
+            return null;
+        }
+
+        $rawRate = trim($nodes->item(0)->nodeValue);
+        $cleanRate = str_replace(',', '.', $rawRate);
+        $cleanRate = preg_replace('/[^0-9.]/', '', $cleanRate);
+        $floatRate = (float) $cleanRate;
+
+        return ($floatRate > 1 && $floatRate < 10000) ? $floatRate : null;
+    }
+
+    /**
+     * Parsea fechas en español del BCV a formato ISO (YYYY-MM-DD).
      */
     public function parseBcvDate(string $rawDate): ?string
     {
@@ -95,11 +105,8 @@ class BcvScraperService
             return null;
         }
 
-        // Quitar el día de la semana si existe (ej. todo lo antes de la coma)
         $parts = explode(',', $rawDate);
         $datePart = count($parts) > 1 ? $parts[1] : $rawDate;
-        
-        // Sanitizar espacios múltiples y espacios en blanco
         $datePart = trim(preg_replace('/\s+/', ' ', $datePart));
         
         $dateParts = explode(' ', $datePart);
@@ -121,93 +128,6 @@ class BcvScraperService
             return null;
         }
         
-        $month = $months[$monthName];
-        
-        return "{$year}-{$month}-{$day}";
-    }
-
-    /**
-     * Procesa la tasa y fecha obtenidas y actualiza la base de datos de manera diferida.
-     * Si la tasa es de hoy, se activa inmediatamente; si es del futuro, se programa.
-     */
-    public function processAndStoreBcvData(array $bcvData): array
-    {
-        $rateValue = $bcvData['rate'];
-        $rateDate = $bcvData['date'];
-        $todayCarbon = Carbon::today('America/Caracas');
-        $today = $todayCarbon->format('Y-m-d');
-        $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
-
-        // Siempre guardamos la última tasa oficial leída del sitio del BCV para fines informativos
-        Setting::updateOrCreate(['key' => 'bcv_latest_scraped_rate'], ['value' => $rateValue]);
-        Setting::updateOrCreate(['key' => 'bcv_latest_scraped_date'], ['value' => $rateDate]);
-
-        // Si la tasa es idéntica a la tasa activa actual, no hacemos nada y limpiamos
-        if ($lastRate !== null && (float)$rateValue === (float)$lastRate) {
-            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
-            return ['status' => 'ignored_same', 'rate' => $rateValue, 'date' => $rateDate];
-        }
-
-        // Si es fin de semana, forzamos la activación de la tasa del lunes porque el comercio la usa sábado y domingo.
-        if ($rateDate <= $today || $todayCarbon->isWeekend()) {
-            Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $rateValue]);
-            // Limpiar programación futura
-            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date', 'bcv_next_value_date'])->delete();
-            return ['status' => 'activated_today', 'rate' => $rateValue, 'date' => $rateDate];
-        } else {
-            $activationDate = Carbon::tomorrow('America/Caracas')->format('Y-m-d');
-
-            Setting::updateOrCreate(['key' => 'bcv_next_rate'], ['value' => $rateValue]);
-            Setting::updateOrCreate(['key' => 'bcv_next_date'], ['value' => $activationDate]);
-            Setting::updateOrCreate(['key' => 'bcv_next_value_date'], ['value' => $rateDate]);
-
-            return [
-                'status' => 'scheduled_future',
-                'rate' => $rateValue,
-                'date' => $rateDate,
-                'activation_date' => $activationDate,
-            ];
-        }
-    }
-
-    /**
-     * Verifica si hay una tasa programada que ya deba entrar en vigencia y la promueve.
-     */
-    public function promoteScheduledRateIfApplicable(): float
-    {
-        $nextRate = Setting::where('key', 'bcv_next_rate')->value('value');
-        $nextDate = Setting::where('key', 'bcv_next_date')->value('value');
-        $today = Carbon::today('America/Caracas')->format('Y-m-d');
-
-        if ($nextRate !== null && $nextDate !== null && $today >= $nextDate) {
-            // Promover
-            Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $nextRate]);
-            // Borrar temporales
-            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
-            Cache::forget('tasa_bcv_global');
-            return (float) $nextRate;
-        }
-
-        $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
-        return (float) ($lastRate ?? 1.0);
-    }
-
-    public function resolveOperativeRate(): array
-    {
-        $today = Carbon::today('America/Caracas')->format('Y-m-d');
-
-        $nextRate = Setting::where('key', 'bcv_next_rate')->value('value');
-        $nextDate = Setting::where('key', 'bcv_next_date')->value('value');
-
-        if ($nextRate !== null && $nextDate !== null && $nextDate <= $today) {
-            Setting::updateOrCreate(['key' => 'last_bcv_rate'], ['value' => $nextRate]);
-            Setting::whereIn('key', ['bcv_next_rate', 'bcv_next_date'])->delete();
-
-            return ['rate' => (float) $nextRate, 'date' => $nextDate, 'promoted' => true];
-        }
-
-        $lastRate = Setting::where('key', 'last_bcv_rate')->value('value');
-
-        return ['rate' => (float) ($lastRate ?? 1.0), 'date' => null, 'promoted' => false];
+        return "{$year}-{$months[$monthName]}-{$day}";
     }
 }

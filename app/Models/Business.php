@@ -15,7 +15,7 @@ class Business extends Model
     ];
 
     // --- Relaciones ---
-    public function settings()
+    public function setting()
     {
         return $this->hasOne(BusinessSetting::class);
     }

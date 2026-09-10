@@ -95,7 +95,7 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        $user->load( 'roles', 'permissions', 'business.settings');
+        $user->load( 'roles', 'permissions', 'business.setting');
 
         $remember  = $request->boolean('remember');
         $expiresAt = $remember ? now()->addDays(30) : now()->addHours(8);
@@ -171,18 +171,19 @@ class AuthenticatedSessionController extends Controller
     }
     private function formatBuisnessData(User $user): array
     {
+        
         return [
             'id'   => $user->business->id,
             'name' => $user->business->name,
             'slug' => $user->business->slug,
             'niche'  =>  $user->business->niche,
             'status' =>  $user->business->status,            
-            'bcv_mode'                        =>  $user->business->settings->bcv_mode,
-            'default_profit_percentage'       => $user->business->settings->default_profit_percentage,
-            'default_reinvestment_percentage' => $user->business->settings->default_reinvestment_percentage,
-            'print_ticket_on_sale'            => $user->business->settings->print_ticket_on_sale,
-            'ticket_header_notes'             => $user->business->settings->ticket_header_notes,
-            'ticket_footer_notes'             => $user->business->settings->ticket_footer_notes,
+            'default_profit_percentage'       => $user->business->setting->default_profit_percentage,
+            'default_reinvestment_percentage' => $user->business->setting->default_reinvestment_percentage,
+            'print_ticket_on_sale'            => $user->business->setting->print_ticket_on_sale,
+            'ticket_header_notes'             => $user->business->setting->ticket_header_notes,
+            'ticket_footer_notes'             => $user->business->setting->ticket_footer_notes,
+            
         ];
     }
 }

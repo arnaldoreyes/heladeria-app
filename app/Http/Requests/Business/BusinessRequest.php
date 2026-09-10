@@ -37,6 +37,14 @@ class BusinessRequest extends FormRequest
                 Rule::in(['active', 'inactive', 'suspended']),
             ],
             'logo_url' => ['nullable', 'url', 'max:500'],
+            'settings' => ['nullable', 'array'],
+            'settings.bcv_mode' => ['nullable', 'string'],
+            'settings.default_profit_percentage' => ['nullable', 'numeric'],
+            'settings.default_reinvestment_percentage' => ['nullable', 'numeric'],
+            'settings.print_ticket_on_sale' => ['nullable', 'boolean'],
+            'settings.ticket_header_notes' => ['nullable', 'string'],
+            'settings.ticket_footer_notes' => ['nullable', 'string'],
+ 
         ];
     }
 }

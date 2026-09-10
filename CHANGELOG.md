@@ -12,7 +12,19 @@ Cada actualización futura se agrega como una nueva sección arriba de esta, con
 - **Removed** — algo que se eliminó.
 
 ---
-## [1.1.2] - 2026-09-09
+
+## [1.1.4] - 2026-09-09
+
+### Fixed
+
+- Correccion en el controlador, request y resource del business
+- Correccion en relacion de business y setting
+
+### Changed
+
+- Cambio del commando y del scrpper de la pagina del banco de venezuela a la v2
+
+## [1.1.3] - 2026-09-09
 
 ### Fixed
 

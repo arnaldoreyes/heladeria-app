@@ -15,7 +15,9 @@ class ExchangeRateResource extends JsonResource
             'type' => $this->type,
             'rate' => (float) $this->rate,
             'effective_at' => $this->effective_at?->toISOString(),
-            'is_current' => (bool) $this->is_current,
+            'current' => (bool) $this->current,
+            'currency' => $this->currency,
+            'source'=>$this->source,
 
             // Timestamps
             'created_at' => $this->created_at?->toISOString(),

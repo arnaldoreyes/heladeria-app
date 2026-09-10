@@ -14,21 +14,14 @@ class BusinessSettingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        // Determinar cuál tasa está activa según el modo
-        $activeRate = $this->bcv_mode === 'auto'
-            ? $this->last_bcv_rate
-            : ($this->bcv_manual_rate ?? $this->last_bcv_rate);
-
         return [
             'id'          => $this->id,
             'business_id' => $this->business_id,
 
             // Configuración de Tasa BCV
             'bcv_mode'            => $this->bcv_mode,
-            'last_bcv_rate'       => $this->last_bcv_rate !== null ? (float) $this->last_bcv_rate : null,
-            'bcv_manual_rate'     => $this->bcv_manual_rate !== null ? (float) $this->bcv_manual_rate : null,
-            'active_bcv_rate'     => $activeRate !== null ? (float) $activeRate : 0.0,
-            'bcv_last_updated_at' => $this->bcv_last_updated_at?->toISOString(),
+            'currency_used'       => $this->currency_used,
+            'rate_policy'         => $this->rate_policy,
 
             // Porcentajes por defecto
             'default_profit_percentage'       => (float) $this->default_profit_percentage,

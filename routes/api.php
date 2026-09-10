@@ -83,7 +83,6 @@ Route::prefix('v1')->group(function () {
             Route::prefix('business-settings')->group(function () {
                 Route::get('/', [BusinessSettingController::class, 'show']);
                 Route::put('/', [BusinessSettingController::class, 'update']);
-                Route::post('/exchanger-rate', [BusinessSettingController::class, 'updateExchangeRate']);
             });
 
             // Productos y Categorías (Creación, edición y eliminación)
@@ -109,8 +108,11 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('payment-methods', PaymentMethodController::class);
 
             // Tasas de Cambio
-            Route::get('exchange-rates/current', [ExchangeRateController::class, 'current']);
-            Route::apiResource('exchange-rates', ExchangeRateController::class);
+            Route::prefix('exchange-rates')->group(function () {
+                Route::get('/', [ExchangeRateController::class, 'index']);
+                Route::post('/sync', [ExchangeRateController::class, 'sync']);
+                Route::post('/config', [ExchangeRateController::class, 'updateConfig']);
+            });
 
             // Gastos
             Route::get('expenses/summary', [ExpenseController::class, 'summary']);

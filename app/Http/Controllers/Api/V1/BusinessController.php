@@ -7,43 +7,39 @@ use App\Http\Requests\BulkActionRequest;
 use App\Http\Requests\Business\BusinessRequest;
 use App\Http\Resources\BusinessResource;
 use App\Models\Business;
+use App\Traits\ApiResponse; 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Spatie\QueryBuilder\QueryBuilder;
 use Illuminate\Validation\Rule;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
 
 class BusinessController extends Controller
 {
+    use ApiResponse; 
+
     /**
-     * Listar todos los negocios (Para SuperAdmin o paneles de administración global).
+     * Listar todos los negocios.
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
         $businesses = QueryBuilder::for(Business::class)
             ->allowedFilters(
                 AllowedFilter::scope('search'),
                 AllowedFilter::exact('status'),
-                AllowedFilter::exact('niche'),
             )
-            ->allowedSorts(
-                'name',
-                'slug',
-                'niche',
-                'status',
-                'created_at',
-            )
+            ->allowedSorts('name', 'status', 'created_at')
             ->defaultSort('-created_at')
-            ->allowedIncludes(
-                'settings',
-                'users',
-                'exchangeRates',
-            )
+            ->allowedIncludes('setting', 'users', 'exchangeRates')
             ->paginate($request->integer('per_page', 15))
             ->appends($request->query());
-        return BusinessResource::collection($businesses);
+
+        
+        return $this->successResponse(
+            BusinessResource::collection($businesses)->response()->getData(true)
+        );
     }
 
     /**
@@ -53,61 +49,66 @@ class BusinessController extends Controller
     {
         $validated = $request->validated();
 
-        // Autogenerar slug si no se envía explícitamente
         if (empty($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['name']);
         }
 
-        // Estado por defecto
         $validated['status'] = $validated['status'] ?? 'active';
 
-        $business = Business::create($validated);
+        $business = DB::transaction(function () use ($validated) {
+            $business = Business::create($validated);
+            
+            // Si vienen settings en el payload se guardan, de lo contrario se usa array vacío
+            $settingsData = $validated['settings'] ?? [];
+            $business->setting()->create($settingsData);
 
-        // Crear la relación inicial de configuraciones por defecto
-        $business->settings()->create();
+            return $business;
+        });
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Negocio registrado exitosamente.',
-            'data'    => new BusinessResource($business->load('settings')),
-        ], 201);
+        return $this->successResponse(
+            new BusinessResource($business->load('setting')),
+            'Negocio registrado exitosamente.',
+            201
+        );
     }
 
     /**
-     * Mostrar los detalles de un negocio específico por ID/ULID o Slug.
+     * Mostrar los detalles de un negocio específico.
      */
     public function show(Business $business): JsonResponse
     {
         $business->load([
-            'settings',
+            'setting',
             'exchangeRates' => fn ($q) => $q->latest()->limit(1)
         ]);
 
-        return response()->json([
-            'status' => 'success',
-            'data'   => new BusinessResource($business),
-        ]);
+        return $this->successResponse(new BusinessResource($business));
     }
 
     /**
-     * Actualizar los datos principales del negocio.
+     * Actualizar los datos principales y configuraciones (Settings).
      */
     public function update(BusinessRequest $request, Business $business): JsonResponse
     {
         $validated = $request->validated();
 
-        // Regenerar slug solo si cambia el nombre y no se pasó un slug manual
-        if (isset($validated['name']) && empty($validated['slug'])) {
-            $validated['slug'] = Str::slug($validated['name']);
-        }
+        DB::transaction(function () use ($business, $validated) {
+            // 1. Actualizar los campos directos de la tabla Business
+            $business->update($validated);
 
-        $business->update($validated);
+            // 2. Si vienen datos de 'settings' en el payload, actualizar o crear la relación
+            if (isset($validated['settings']) && is_array($validated['settings'])) {
+                $business->setting()->updateOrCreate(
+                    ['business_id' => $business->id],
+                    $validated['settings']
+                );
+            }
+        });
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Información del negocio actualizada.',
-            'data'    => new BusinessResource($business->fresh('settings')),
-        ]);
+        return $this->successResponse(
+            new BusinessResource($business->fresh(['setting', 'exchangeRates'])),
+            'Información del negocio actualizada exitosamente.'
+        );
     }
 
     /**
@@ -117,10 +118,7 @@ class BusinessController extends Controller
     {
         $business->delete();
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Negocio eliminado correctamente.',
-        ]);
+        return $this->successResponse(null, 'Negocio eliminado correctamente.');
     }
 
     /**
@@ -131,25 +129,23 @@ class BusinessController extends Controller
         $user = $request->user();
 
         if (!$user->business_id) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'El usuario no pertenece a ningún negocio activo.',
-            ], 404);
+            return $this->errorResponse('El usuario no pertenece a ningún negocio activo.', 404);
         }
 
         $business = Business::with([
-            'settings',
+            'setting',
             'exchangeRates' => fn ($q) => $q->latest()->limit(1)
-        ])->findOrFail($user->business_id);
+        ])->find($user->business_id);
 
-        return response()->json([
-            'status' => 'success',
-            'data'   => new BusinessResource($business),
-        ]);
+        if (!$business) {
+            return $this->errorResponse('Negocio no encontrado.', 404);
+        }
+
+        return $this->successResponse(new BusinessResource($business));
     }
 
     /**
-     * Cambiar de estado al negocio (Activar/Suspender).
+     * Cambiar de estado al negocio.
      */
     public function toggleStatus(Request $request, Business $business): JsonResponse
     {
@@ -159,23 +155,22 @@ class BusinessController extends Controller
 
         $business->update(['status' => $validated['status']]);
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => "El estado del negocio ha sido cambiado a: {$business->status}",
-            'data'    => new BusinessResource($business),
-        ]);
+        return $this->successResponse(
+            new BusinessResource($business),
+            "El estado del negocio ha sido cambiado a: {$business->status}"
+        );
     }
 
-     public function bulkDestroy(BulkActionRequest $request): JsonResponse
+    /**
+     * Borrado masivo.
+     */
+    public function bulkDestroy(BulkActionRequest $request): JsonResponse
     {
         $deletedCount = Business::destroy($request->ids);
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => "Se han eliminado {$deletedCount} negocios correctamente.",
-            'data'    => [
-                'deleted_count' => $deletedCount,
-            ],
-        ]);
+        return $this->successResponse(
+            ['deleted_count' => $deletedCount],
+            "Se han eliminado {$deletedCount} negocios correctamente."
+        );
     }
 }

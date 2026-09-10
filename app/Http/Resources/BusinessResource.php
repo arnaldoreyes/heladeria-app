@@ -23,7 +23,7 @@ class BusinessResource extends JsonResource
             'logo_url' => $this->logo_url,
 
             // Relación de configuración (1 a 1)
-            'settings' => new BusinessSettingResource($this->whenLoaded('settings')),
+            'setting' => new BusinessSettingResource($this->whenLoaded('setting')),
 
             // Relaciones opcionales (cargadas condicionalmente)
             'users'          => UserResource::collection($this->whenLoaded('users')),

@@ -2,70 +2,82 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToBusiness;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Builder;
 
 class ExchangeRate extends Model
 {
-    use BelongsToBusiness, HasUlids;
+    use HasFactory, HasUlids;
 
     protected $fillable = [
         'business_id',
+        'user_id',
         'type',
         'rate',
+        'source',
         'effective_at',
-        'is_current',
+        'currency'
     ];
 
-    protected $casts = [
-        'rate'         => 'decimal:4',
-        'effective_at' => 'datetime',
-        'is_current'   => 'boolean',
-    ];
-
-    protected static function booted(): void
+    protected function casts(): array
     {
-        static::saving(function (ExchangeRate $exchangeRate) {
-            if ($exchangeRate->is_current && ($exchangeRate->isDirty('is_current') || $exchangeRate->wasRecentlyCreated)) {
-                DB::transaction(function () use ($exchangeRate) {
-                    static::query()
-                        ->where('business_id', $exchangeRate->business_id)
-                        ->where('type', $exchangeRate->type)
-                        ->where('id', '!=', $exchangeRate->id ?? '')
-                        ->update(['is_current' => false]);
-                });
-            }
-        });
+        return [
+            'rate'         => 'decimal:4',
+            'effective_at' => 'datetime',
+        ];
     }
 
-    // --- Scopes ---
+    // --- RELACIONES ---
 
-    public function scopeCurrent(Builder $query, bool $isCurrent = true): Builder
+    public function business(): BelongsTo
     {
-        return $query->where('is_current', $isCurrent);
+        return $this->belongsTo(Business::class);
     }
 
-    public function scopeByType(Builder $query, ?string $type = null): Builder
+    public function user(): BelongsTo
     {
-        return $query->when($type, fn ($q) => $q->where('type', $type));
+        return $this->belongsTo(User::class);
     }
 
-    public function scopeEffectiveOn(Builder $query, ?string $date = null): Builder
+    // --- SCOPES ---
+
+    /**
+     * Tasa vigente a una fecha dada (por defecto ahora).
+     */
+    public function scopeEffective(Builder $query, ?string $date = null): Builder
     {
-        return $query->when($date, fn ($q) => $q->whereDate('effective_at', '<=', $date));
+        return $query->where('effective_at', '<=', $date ?? now());
     }
 
-    // --- Helpers ---
-
-    public static function getActiveRate(string $type = 'BCV'): ?self
+    /**
+     * Solo tasas globales (creadas por el cron o sincronización del sistema).
+     */
+    public function scopeGlobal(Builder $query): Builder
     {
-        return static::query()
-            ->byType($type)
-            ->current()
-            ->latest('effective_at')
-            ->first();
+        return $query->whereNull('business_id');
+    }
+
+    /**
+     * Solo tasas asignadas a un negocio específico.
+     */
+    public function scopeForBusiness(Builder $query, string $businessId): Builder
+    {
+        return $query->where('business_id', $businessId);
+    }
+
+    /**
+     * Filtrar por tipo de moneda/mercado (ej: 'bcv', 'parallel').
+     */
+    public function scopeOfType(Builder $query, string $type = 'bcv'): Builder
+    {
+        return $query->where('type', $type);
+    }
+
+    public function isGlobal(): bool
+    {
+        return is_null($this->business_id);
     }
 }
