@@ -14,10 +14,8 @@ class CategoryResource extends JsonResource
             'business_id' => $this->business_id,
             'parent_id' => $this->parent_id,
             'name' => $this->name,
-            'slug' => $this->slug,
             'description' => $this->description,
             'icon' => $this->icon,
-            'is_active' => (bool) $this->is_active,
 
             'profit_percentage' => $this->profit_percentage !== null ? (float) $this->profit_percentage : null,
             'reinvestment_percentage' => $this->reinvestment_percentage !== null ? (float) $this->reinvestment_percentage : null,

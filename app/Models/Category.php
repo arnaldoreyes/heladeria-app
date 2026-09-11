@@ -17,7 +17,6 @@ class Category extends Model
     protected $fillable = [
         'business_id',
         'name',
-        'slug',
         'description',
         'icon',
         'profit_percentage',
@@ -34,17 +33,7 @@ class Category extends Model
 
     protected static function booted(): void
     {
-        static::creating(function (Category $category) {
-            if (empty($category->slug)) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
-
-        static::updating(function (Category $category) {
-            if ($category->isDirty('name') && ! $category->isDirty('slug')) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
+    
     }
 
     // --- Relaciones Jerárquicas ---

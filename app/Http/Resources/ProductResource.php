@@ -24,22 +24,17 @@ class ProductResource extends JsonResource
             'is_active' => (bool) $this->is_active,
 
             // Precios
-            'pricing' => [
-                'price_usd' => (float) $this->price_usd,
-                'cost_usd' => (float) $this->cost_usd,
-            ],
+            'price_usd' => (float) $this->price_usd,
+            'price_bcv' => (float) $this->price_usd,
+            'cost_usd' => (float) $this->cost_usd,
 
             // Inventario / Stock
-            'inventory' => [
-                'stock' => (float) $this->stock,
-                'min_stock_alert' => (float) $this->min_stock_alert,
-                'is_low_stock' => $this->stock <= $this->min_stock_alert,
-            ],
+            'stock' => (float) $this->stock,
+            'min_stock_alert' => (float) $this->min_stock_alert,
+            'is_low_stock' => $this->stock <= $this->min_stock_alert,
 
             // Relaciones opcionales
-            'category' => new CategoryResource($this->whenLoaded('category')),
-            'business' => new BusinessResource($this->whenLoaded('business')),
-            'inventory_movements' => InventoryMovementResource::collection($this->whenLoaded('inventoryMovements')),
+            'category' => new CategoryResource($this->category),
 
             // Timestamps
             'created_at' => $this->created_at?->toISOString(),

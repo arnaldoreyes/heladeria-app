@@ -4,21 +4,23 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkActionRequest;
-use App\Http\Requests\CategoryRequest;
+
 use App\Http\Resources\CategoryResource;
+use App\Http\Requests\Category\CategoryRequest;
 use App\Models\Category;
+use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 class CategoryController extends Controller
 {
+    use ApiResponse;
     /**
      * Muestra el listado de categorías (soporta paginación, tree view y búsqueda).
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
         $query = QueryBuilder::for(Category::class)
             ->allowedFilters(
@@ -26,18 +28,14 @@ class CategoryController extends Controller
                 AllowedFilter::scope('search'),
 
                 // Filtros booleanos/de estado
-                AllowedFilter::scope('active'),
-                AllowedFilter::scope('active_only', 'active'),
                 AllowedFilter::scope('root'),
                 AllowedFilter::scope('root_only', 'root'),
-                AllowedFilter::exact('is_active'),
 
                 // Filtro directo por padre
                 AllowedFilter::exact('parent_id'),
             )
             ->allowedSorts(
                 'name',
-                'slug',
                 'profit_percentage',
                 'reinvestment_percentage',
                 'created_at',
@@ -56,15 +54,21 @@ class CategoryController extends Controller
                 ->with(['childrenRecursive'])
                 ->get();
 
-            return CategoryResource::collection($categories);
+            return $this->successResponse(
+                CategoryResource::collection($categories)->response()->getData(true),
+                'Categorias obtenidas exitosamente'
+            );
         }
 
         $categories = $query->with(['parent'])
             ->withCount('products')
             ->paginate($request->integer('per_page', 15))
             ->appends($request->query());
-
-        return CategoryResource::collection($categories);
+        
+        return $this->successResponse(
+            CategoryResource::collection($categories)->response()->getData(true),
+            'Categorias obtenidas exitosamente'
+        );
     }
 
     /**
@@ -73,30 +77,33 @@ class CategoryController extends Controller
     public function store(CategoryRequest $request): JsonResponse
     {
         $category = Category::create($request->validated());
+        return $this->successResponse(
+           new CategoryResource($category->load('parent')),
+            'Categoria creada exitosamente'
+        );
 
-        return (new CategoryResource($category->load('parent')))
-            ->response()
-            ->setStatusCode(201);
     }
 
     /**
      * Muestra una categoría específica.
      */
-    public function show(Category $category): CategoryResource
+    public function show(Category $category): JsonResponse
     {
-        return new CategoryResource(
-            $category->load(['parent', 'children', 'products'])->loadCount('products')
-        );
+        return $this->successResponse(
+           new CategoryResource($category->load(['parent', 'children', 'products'])));
     }
 
     /**
      * Actualiza una categoría existente.
      */
-    public function update(CategoryRequest $request, Category $category): CategoryResource
+    public function update(CategoryRequest $request, Category $category): JsonResponse
     {
         $category->update($request->validated());
 
-        return new CategoryResource($category->load(['parent', 'children']));
+        return $this->successResponse(
+           new CategoryResource($category->load('parent', 'children')),
+            'Categoria actualizada exitosamente'
+        );
     }
 
     /**
@@ -105,32 +112,32 @@ class CategoryController extends Controller
     public function destroy(Category $category): JsonResponse
     {
         if ($category->children()->exists()) {
-            return response()->json([
-                'message' => 'No se puede eliminar la categoría porque tiene subcategorías asociadas.',
-            ], 422);
+            
+            return $this->errorResponse(
+                'No se puede eliminar la categoría porque tiene subcategorías asociadas.'
+            );
         }
 
         if ($category->products()->exists()) {
-            return response()->json([
-                'message' => 'No se puede eliminar la categoría porque tiene productos asignados.',
-            ], 422);
+            return $this->errorResponse(
+                'No se puede eliminar la categoría porque tiene productos asignados.'
+            );
         }
 
         $category->delete();
 
-        return response()->json(null, 204);
+        return $this->successResponse(
+            null,
+            'Método de pago eliminado exitosamente'
+        );
     }
 
     public function bulkDestroy(BulkActionRequest $request): JsonResponse
     {
         $deletedCount = Category::destroy($request->ids);
-
-        return response()->json([
-            'status'  => 'success',
-            'message' => "Se han eliminado {$deletedCount} negocios correctamente.",
-            'data'    => [
-                'deleted_count' => $deletedCount,
-            ],
-        ]);
+        return $this->successResponse(['deleted_count' => $deletedCount], "Se eliminaron {$deletedCount} registros");
     }
+
+
+    
 }
