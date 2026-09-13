@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AnalyticsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\BusinessController;
 use App\Http\Controllers\Api\V1\BusinessSettingController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Api\V1\Analytics\OperationsAnalyticsController;
 use App\Http\Controllers\Api\V1\Analytics\SalesAnalyticsController;
 use App\Http\Controllers\Api\V1\Analytics\SupplierAnalyticsController;
 use App\Http\Controllers\Api\V1\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Api\V1\SupplierController;
 
 /*
 |--------------------------------------------------------------------------
@@ -121,6 +123,9 @@ Route::prefix('v1')->group(function () {
             // Usuarios
             Route::post('users/bulk-destroy', [UserController::class, 'bulkDestroy']);
             Route::apiResource('users', UserController::class);
+
+            // Suppliers
+            Route::apiResource('suppliers', SupplierController::class);
         });
 
 
@@ -151,7 +156,6 @@ Route::prefix('v1')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    /*
     Route::middleware(['auth:sanctum', 'business.context', 'role:superadmin|owner'])->prefix('analytics')->group(function () {
 
         Route::get('dashboard', DashboardAnalyticsController::class);
